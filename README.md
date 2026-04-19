@@ -114,6 +114,29 @@ flowchart LR
 
 > 这个仓库已经不是“纯上游原版”，而是和 `vcptoolbox-openclaw` 成对维护的本地集成版本。
 
+## OpenClaw 直接怎么接到这里
+
+当前实现里，OpenClaw 不是直接把聊天记录写进 VCPChat 的 `history.json`。
+
+真正的链路是：
+
+1. OpenClaw 安装本地桥接插件 `OpenClawmodules/vcp-openclaw-bridge`
+2. 插件把渠道消息、VCP 工具结果、知识问答结果写到 `VCPToolBox` 的集成接口
+3. `VCPToolBox` 再把这些内容归档到 `ChannelMirrorData`
+4. `VCPChat` 读取 `ChannelMirrorData`，并把它们显示成 `channel_mirror` 类型会话
+
+这也是为什么你现在在主列表里能看到飞书 / 微信镜像，但它们默认是只读的。
+
+另外，VCPChat 还会从 `~/.openclaw/agents/<agentId>/sessions/*.jsonl` 做一层补全回填，所以你看到的时间线通常会比单纯的 `history.json` 更完整，尤其是：
+
+- OpenClaw 实际发出的 assistant 回复
+- 通过 OpenClaw 发出的文件附件
+
+对应文档入口：
+
+- [OPENCLAW_CHANNEL_MIRROR.md](./docs/OPENCLAW_CHANNEL_MIRROR.md)
+- [后端集成逻辑](https://github.com/hx676/vcptoolbox-openclaw/blob/main/docs/OPENCLAW_INTEGRATION.md)
+
 ## 配套关系
 
 完整运行通常需要两个仓库一起配合：
