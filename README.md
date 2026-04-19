@@ -1,5 +1,9 @@
 # VCPChat OpenClaw Fork
 
+中文：这是面向本地桌面使用的 `VCPChat` 二开版前端，负责聊天界面、渠道镜像可视化、AgentFlow Studio 与分布式桌面展示。
+
+English: This is a customized `VCPChat` desktop fork focused on chat UI, channel mirror visualization, AgentFlow Studio, and distributed desktop presentation.
+
 [![Fork: VCPChat](https://img.shields.io/badge/Fork-VCPChat-2f81f7)](https://github.com/hx676/vcpchat-openclaw)
 [![Paired Backend](https://img.shields.io/badge/Paired%20Backend-vcptoolbox--openclaw-111827)](https://github.com/hx676/vcptoolbox-openclaw)
 [![OpenClaw Integrated](https://img.shields.io/badge/OpenClaw-Integrated-16a34a)](https://github.com/hx676/vcptoolbox-openclaw)
@@ -22,6 +26,34 @@
 - 当前仓库已经按个人二开版收口，不再是单纯的上游镜像。
 - GitHub 首页已补齐 README、About、Description 和 Topics。
 - 推荐阅读顺序是：`README -> docs -> paired repo -> 本地启动`。
+
+## 安装前提
+
+| 项目 | 建议 |
+| --- | --- |
+| 操作系统 | Windows 10 / 11 |
+| Node.js | `>= 20.x` |
+| npm | `>= 9.x` |
+| Python | `>= 3.10`，用于部分音频/插件/扩展能力 |
+| 配套后端 | 需要 [vcptoolbox-openclaw](https://github.com/hx676/vcptoolbox-openclaw) 在本机可用 |
+| 推荐目录结构 | `E:\2026\VCPChat` 与 `E:\2026\VCPToolBox` 同级 |
+
+## 总架构图
+
+```mermaid
+flowchart LR
+    User["用户 / 桌面操作"] --> Chat["VCPChat<br/>当前仓库"]
+    User --> Channel["微信 / 飞书 / OpenClaw 渠道"]
+    Channel --> OpenClaw["OpenClaw"]
+    OpenClaw --> Toolbox["VCPToolBox<br/>配套后端仓库"]
+    Toolbox --> Memory["VCP Knowledge Base / Memory"]
+    Toolbox --> Tools["Plugins / Tool Runtime"]
+    Toolbox --> Workflow["AgentFlow Runtime"]
+    Toolbox --> Mirror["Channel Mirror Store"]
+    Mirror --> Chat
+    Workflow --> Studio["AgentFlow Studio"]
+    Chat --> Studio
+```
 
 ## 一眼看懂
 
