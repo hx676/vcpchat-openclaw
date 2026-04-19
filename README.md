@@ -23,6 +23,37 @@
 - GitHub 首页已补齐 README、About、Description 和 Topics。
 - 推荐阅读顺序是：`README -> docs -> paired repo -> 本地启动`。
 
+## 一眼看懂
+
+```mermaid
+flowchart LR
+    User["用户 / 本地桌面"] --> Chat["VCPChat Desktop"]
+    User --> Channels["微信 / 飞书 / OpenClaw 渠道"]
+    Channels --> Toolbox["VCPToolBox Backend"]
+    Toolbox --> Mirror["Channel Mirror / 会话镜像"]
+    Toolbox --> AgentFlow["AgentFlow Runtime"]
+    Mirror --> Chat
+    AgentFlow --> Studio["AgentFlow Studio"]
+    Chat --> Studio
+```
+
+这个仓库负责的是前端和可视化这一侧：
+
+- 桌面聊天主客户端
+- 渠道镜像会话查看
+- AgentFlow Studio 前端工作区
+- 分布式桌面能力与 `vcp_chat` 工具结果展示
+
+## 截图预览
+
+| 桌面主界面 | 另一套界面状态 |
+| --- | --- |
+| ![VCPChat Screenshot 1](assets/E1.jpg) | ![VCPChat Screenshot 2](assets/E7.png) |
+
+| Agent / 会话展示 | 高级渲染示例 |
+| --- | --- |
+| ![VCPChat Screenshot 3](assets/E10.png) | ![VCPChat Screenshot 4](assets/E11.jpg) |
+
 这是 `VCPChat` 的个人二次开发版本，仓库地址为：
 
 - 前端客户端仓库：[hx676/vcpchat-openclaw](https://github.com/hx676/vcpchat-openclaw)
@@ -92,6 +123,32 @@ npm start
 - `npm run start:rag-observer`：仅启动 RAG 观察入口
 - `npm run doctor`：做本地环境检查
 
+## 一键启动
+
+如果你本机目录结构是这样的：
+
+```text
+E:\2026\
+├─ VCPChat
+└─ VCPToolBox
+```
+
+那么最省事的启动方式是直接运行这些脚本：
+
+- [一键启动VCPChat.bat](/E:/2026/VCPChat/一键启动VCPChat.bat)
+  作用：自动寻找同级 `VCPToolBox`，补齐依赖，拉起后端，再启动桌面端。
+- [start.bat](/E:/2026/VCPChat/start.bat)
+  作用：只启动当前桌面端，并在启动前检查本仓库依赖。
+- [launch-vchat.vbs](/E:/2026/VCPChat/launch-vchat.vbs)
+  作用：无控制台窗口方式启动桌面端。
+- [重启VCPChat.bat](/E:/2026/VCPChat/重启VCPChat.bat)
+  作用：用于本地快速重启桌面客户端。
+
+如果你需要先做环境体检，再决定是否启动：
+
+- `npm run doctor`
+- [VCPDoctor.bat](/E:/2026/VCPChat/VCPDoctor.bat)
+
 ## 常用目录
 
 - [main.js](/E:/2026/VCPChat/main.js)：Electron 主进程入口
@@ -122,6 +179,18 @@ npm start
 - 运行和演示 AgentFlow Studio
 
 不建议把这个 fork 直接当成“无配置即开箱”的纯净发布版，因为它已经包含了较多本地化定制与联调路径。
+
+## 与上游差异
+
+这个 fork 相对上游，已经明显偏向“个人集成版”而不是“纯前端壳”：
+
+- 增加了与 `vcptoolbox-openclaw` 成对维护的说明与入口
+- 强化了 OpenClaw 渠道镜像在桌面端的查看链路
+- 加入了 AgentFlow Studio 作为独立前端工作区
+- 已围绕 `vcp_chat` 分布式工具链路做本地联调和展示闭环
+- 增加了更适合本地部署的批处理 / VBS 启动脚本
+
+如果你想继续同步上游，建议把这个仓库看成“带本地集成假设的分支产品”，而不是直接覆盖上游版本。
 
 ## 与上游的关系
 
