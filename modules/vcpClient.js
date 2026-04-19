@@ -1,6 +1,7 @@
 // modules/vcpClient.js - 统一的 VCP 请求处理模块
 const fs = require('fs-extra');
 const path = require('path');
+const { resolveModelRequestTarget } = require('./utils/modelRouting');
 
 // 全局的 AbortController 映射：messageId -> AbortController
 const activeRequests = new Map();
@@ -100,6 +101,7 @@ async function sendToVCP(params) {
 
     // === URL 切换（根据工具注入设置）===
     let finalVcpUrl = vcpUrl;
+    let requestTarget = null;
     let settings = {};
     try {
         const settingsPath = path.join(moduleConfig.APP_DATA_ROOT_IN_PROJECT, 'settings.json');
@@ -107,19 +109,53 @@ async function sendToVCP(params) {
             settings = await fs.readJson(settingsPath);
         }
 
-        if (settings.enableVcpToolInjection === true) {
-            const urlObject = new URL(vcpUrl);
-            urlObject.pathname = '/v1/chatvcp/completions';
-            finalVcpUrl = urlObject.toString();
-            console.log(`[VCPClient] VCP tool injection is ON. URL switched to: ${finalVcpUrl}`);
-        } else {
-            console.log(`[VCPClient] VCP tool injection is OFF. Using original URL: ${vcpUrl}`);
-        }
+        requestTarget = resolveModelRequestTarget({
+            defaultUrl: vcpUrl,
+            enableToolInjection: settings.enableVcpToolInjection === true,
+            model: modelConfig?.model,
+        });
+        finalVcpUrl = requestTarget.finalUrl;
+        console.log(`[VCPClient] Request target resolved: provider=${requestTarget.provider}, url=${finalVcpUrl}, model=${requestTarget.resolvedModel}`);
     } catch (e) {
         console.error(`[VCPClient] Error reading settings or switching URL: ${e.message}. Proceeding with original URL.`);
     }
 
+    if (!requestTarget) {
+        requestTarget = resolveModelRequestTarget({
+            defaultUrl: vcpUrl,
+            enableToolInjection: false,
+            model: modelConfig?.model,
+        });
+        finalVcpUrl = requestTarget.finalUrl;
+    }
+
     // === 音乐控制注入 ===
+    if (requestTarget.useToolInjection === true) {
+        const toolModeMarker = '[VCP Tool Mode]';
+        const toolModeInstruction = [
+            toolModeMarker,
+            'This session already has VCP tool access.',
+            'Do not claim that no tools or plugins are available unless an actual tool call has already failed in this turn.',
+            'When the user asks to fetch, search, open, or use a named VCP plugin, prefer emitting a VCP tool request block instead of describing limitations.',
+            'Use the exact VCP tool syntax, not JSON and not markdown code fences.',
+            'Format:',
+            '<<<[TOOL_REQUEST]>>>',
+            'maid:「始」YourName「末」',
+            'tool_name:「始」PluginName「末」',
+            'param_name:「始」param_value「末」',
+            '<<<[END_TOOL_REQUEST]>>>',
+            'If the user asks for raw or original tool output, keep the tool result verbatim and do not summarize it unless explicitly asked.'
+        ].join('\n');
+
+        let systemMsgIndex = messages.findIndex(m => m.role === 'system');
+        if (systemMsgIndex === -1) {
+            messages.unshift({ role: 'system', content: toolModeInstruction });
+        } else if (!String(messages[systemMsgIndex].content || '').includes(toolModeMarker)) {
+            const originalContent = String(messages[systemMsgIndex].content || '').trim();
+            messages[systemMsgIndex].content = [toolModeInstruction, originalContent].filter(Boolean).join('\n\n').trim();
+        }
+    }
+
     if (moduleConfig.getMusicState) {
         try {
             const { musicWindow, currentSongInfo } = moduleConfig.getMusicState();
@@ -190,6 +226,7 @@ async function sendToVCP(params) {
     const requestBody = {
         messages: messages,
         ...modelConfig,
+        model: requestTarget.resolvedModel,
         stream: modelConfig.stream === true,
         requestId: messageId
     };
@@ -220,7 +257,7 @@ async function sendToVCP(params) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${vcpApiKey}`
+                ...(requestTarget.requiresAuth ? { 'Authorization': `Bearer ${vcpApiKey}` } : {})
             },
             body: serializedBody,
             signal: controller.signal

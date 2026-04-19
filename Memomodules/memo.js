@@ -269,6 +269,11 @@ function setupEventListeners() {
 
     document.getElementById('submit-new-memo-btn').onclick = handleCreateMemo;
 
+    const graphGuideBtn = document.getElementById('open-graph-guide-btn');
+    if (graphGuideBtn) {
+        graphGuideBtn.onclick = openNeuralGraphEntry;
+    }
+
     // 隐藏文件夹管理
     document.getElementById('manage-hidden-btn').onclick = openHiddenFoldersModal;
     document.getElementById('close-hidden-modal-btn').onclick = () => {
@@ -1305,6 +1310,34 @@ async function refreshMemoList() {
     } else if (currentFolder) {
         await loadMemos(currentFolder);
     }
+}
+
+function getPreferredGraphSourceMemo() {
+    const selectedMemo = allMemos.find(memo => {
+        const memoId = `${memo.folderName || currentFolder}:::${memo.name}`;
+        return selectedMemos.has(memoId);
+    });
+    if (selectedMemo) return selectedMemo;
+
+    if (currentMemo) {
+        return {
+            name: currentMemo.file,
+            folderName: currentMemo.folder,
+            preview: currentMemo.content || ''
+        };
+    }
+
+    return allMemos[0] || null;
+}
+
+async function openNeuralGraphEntry() {
+    const sourceMemo = getPreferredGraphSourceMemo();
+    if (!sourceMemo) {
+        await customAlert('当前没有可用于联想的记录。请先在左侧选择一个有内容的文件夹，或新建一条知识笔记。', '无法打开神经云图');
+        return;
+    }
+
+    openAssociationConfig(sourceMemo);
 }
 
 // ========== 自定义弹窗函数 ==========

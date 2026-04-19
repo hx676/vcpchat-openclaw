@@ -38,10 +38,10 @@ window.chatManager = (() => {
 
 
     /**
-     * 应用单个正则规则到文本
-     * @param {string} text - 输入文本
-     * @param {Object} rule - 正则规则对象
-     * @returns {string} 处理后的文本
+     * 鎼存梻鏁ら崡鏇氶嚋濮濓絽鍨憴鍕灟閸掔増鏋冮張?
+     * @param {string} text - 鏉堟挸鍙嗛弬鍥ㄦ拱
+     * @param {Object} rule - 濮濓絽鍨憴鍕灟鐎电钖?
+     * @returns {string} 婢跺嫮鎮婇崥搴ｆ畱閺傚洦婀?
      */
     function applyRegexRule(text, rule) {
         if (!rule || !rule.findPattern || typeof text !== 'string') {
@@ -49,12 +49,12 @@ window.chatManager = (() => {
         }
 
         try {
-            // 使用 uiHelperFunctions.regexFromString 来解析正则表达式
+            // 娴ｈ法鏁?uiHelperFunctions.regexFromString 閺夈儴袙閺嬫劖顒滈崚娆掋€冩潏鎯х础
             let regex = null;
             if (window.uiHelperFunctions && window.uiHelperFunctions.regexFromString) {
                 regex = window.uiHelperFunctions.regexFromString(rule.findPattern);
             } else {
-                // 后备方案：手动解析
+                // 閸氬骸顦弬瑙勵攳閿涙碍澧滈崝銊ㄐ掗弸?
                 const regexMatch = rule.findPattern.match(/^\/(.+?)\/([gimuy]*)$/);
                 if (regexMatch) {
                     regex = new RegExp(regexMatch[1], regexMatch[2]);
@@ -64,26 +64,26 @@ window.chatManager = (() => {
             }
             
             if (!regex) {
-                console.error('无法解析正则表达式', rule.findPattern);
+                console.error('无法创建正则表达式:', rule.findPattern);
                 return text;
             }
             
-            // 应用替换（如果没有替换内容，则默认替换为空字符串）
+            // 鎼存梻鏁ら弴鎸庡床閿涘牆顩ч弸婊勭梾閺堝娴涢幑銏犲敶鐎圭櫢绱濋崚娆撶帛鐠併倖娴涢幑顫礋缁屽搫鐡х粭锔胯閿?
             return text.replace(regex, rule.replaceWith || '');
         } catch (error) {
-            console.error('应用正则规则时出错', rule.findPattern, error);
+            console.error('应用正则规则时出错:', rule.findPattern, error);
             return text;
         }
     }
 
     /**
-     * 应用所有匹配的正则规则到文本
-     * @param {string} text - 输入文本
-     * @param {Array} rules - 正则规则数组
-     * @param {string} scope - 作用域 ('frontend' 或 'context')
-     * @param {string} role - 消息角色 ('user' 或 'assistant')
-     * @param {number} depth - 消息深度（0 = 最新消息）
-     * @returns {string} 处理后的文本
+     * 鎼存梻鏁ら幍鈧張澶婂爱闁板秶娈戝锝呭灟鐟欏嫬鍨崚鐗堟瀮閺?
+     * @param {string} text - 鏉堟挸鍙嗛弬鍥ㄦ拱
+     * @param {Array} rules - 濮濓絽鍨憴鍕灟閺佹壆绮?
+     * @param {string} scope - 娴ｆ粎鏁ら崺?('frontend' 閹?'context')
+     * @param {string} role - 濞戝牊浼呯憴鎺曞 ('user' 閹?'assistant')
+     * @param {number} depth - 濞戝牊浼呭ǎ鍗炲閿? = 閺堚偓閺傜増绉烽幁顖ょ礆
+     * @returns {string} 婢跺嫮鎮婇崥搴ｆ畱閺傚洦婀?
      */
     function applyRegexRules(text, rules, scope, role, depth = 0) {
         if (!rules || !Array.isArray(rules) || typeof text !== 'string') {
@@ -93,26 +93,26 @@ window.chatManager = (() => {
         let processedText = text;
         
         rules.forEach(rule => {
-            // 检查是否应该应用此规则
+            // 濡偓閺屻儲妲搁崥锕€绨茬拠銉ョ安閻劍顒濈憴鍕灟
             
-            // 1. 检查作用域
+            // 1. 濡偓閺屻儰缍旈悽銊ョ厵
             const shouldApplyToScope =
                 (scope === 'context' && rule.applyToContext) ||
                 (scope === 'frontend' && rule.applyToFrontend);
             
             if (!shouldApplyToScope) return;
             
-            // 2. 检查角色
+            // 2. 濡偓閺屻儴顫楅懝?
             const shouldApplyToRole = rule.applyToRoles && rule.applyToRoles.includes(role);
             if (!shouldApplyToRole) return;
             
-            // 3. 检查深度（-1 表示无限制）
+            // 3. 濡偓閺屻儲绻佹惔锔肩礄-1 鐞涖劎銇氶弮鐘绘閸掕绱?
             const minDepthOk = rule.minDepth === undefined || rule.minDepth === -1 || depth >= rule.minDepth;
             const maxDepthOk = rule.maxDepth === undefined || rule.maxDepth === -1 || depth <= rule.maxDepth;
             
             if (!minDepthOk || !maxDepthOk) return;
             
-            // 应用规则
+            // 鎼存梻鏁ょ憴鍕灟
             processedText = applyRegexRule(processedText, rule);
         });
         
@@ -208,11 +208,11 @@ window.chatManager = (() => {
 
         const trimmedTitle = topicTitle.trim();
         if (!trimmedTitle) return trimmedTitle;
-        if (trimmedTitle.includes('新话题')) return trimmedTitle;
+        if (trimmedTitle.includes('聊天于')) return trimmedTitle;
 
         const timeMatch = trimmedTitle.match(/(\d{1,2}:\d{2}:\d{2})/);
-        if (trimmedTitle.includes('新话') && timeMatch) {
-            return `新话题 ${timeMatch[1]}`;
+        if (trimmedTitle.includes('聊天') && timeMatch) {
+            return `聊天于 ${timeMatch[1]}`;
         }
 
         return trimmedTitle;
@@ -223,8 +223,8 @@ window.chatManager = (() => {
     function displayNoItemSelected() {
         const { currentChatNameH3, chatMessagesDiv, currentItemActionBtn, messageInput, sendMessageBtn, attachFileBtn } = elements;
         const voiceChatBtn = document.getElementById('voiceChatBtn');
-        currentChatNameH3.textContent = '选择一个 Agent 或群组开始聊天';
-        chatMessagesDiv.innerHTML = `<div class="message-item system welcome-bubble"><p>欢迎，请从左侧选择 AI 助手或群组，或创建新的对话。</p></div>`;
+        currentChatNameH3.textContent = '请选择一个 Agent 或群组开始聊天';
+        chatMessagesDiv.innerHTML = `<div class="message-item system welcome-bubble"><p>欢迎来到 VCPChat。请先从左侧选择一个 Agent 或群组，然后开始对话。</p></div>`;
         currentItemActionBtn.style.display = 'none';
         if (voiceChatBtn) voiceChatBtn.style.display = 'none';
         messageInput.disabled = true;
@@ -237,10 +237,10 @@ window.chatManager = (() => {
     }
 
     async function selectItem(itemId, itemType, itemName, itemAvatarUrl, itemFullConfig) {
-        // 心流锁激活时，不允许切换Agent
+        // 韫囧啯绁﹂柨浣圭负濞茬粯妞傞敍灞肩瑝閸忎浇顔忛崚鍥ㄥ床Agent
         if (window.flowlockManager && window.flowlockManager.getState && window.flowlockManager.getState().isActive) {
             if (uiHelper && uiHelper.showToastNotification) {
-                uiHelper.showToastNotification('心流锁运行中，无法切换 Agent。请先停止心流锁。', 'warning');
+                uiHelper.showToastNotification('当前存在进行中的 Flowlock 任务，暂时不能切换 Agent。', 'warning');
             }
             console.log('[ChatManager] Blocked agent switch due to active Flowlock');
             return;
@@ -283,18 +283,25 @@ window.chatManager = (() => {
             if (groupRenderer && typeof groupRenderer.clearInviteAgentButtons === 'function') {
                 groupRenderer.clearInviteAgentButtons();
             }
+        } else if (itemType === 'channel_mirror') {
+            if (groupRenderer && typeof groupRenderer.clearInviteAgentButtons === 'function') {
+                groupRenderer.clearInviteAgentButtons();
+            }
         }
      
         const voiceChatBtn = document.getElementById('voiceChatBtn');
 
-        const itemTypeLabel = itemType === 'group' ? ' (群组)' : '';
-        currentChatNameH3.textContent = `与 ${itemName}${itemTypeLabel} 聊天中`;
-        setCurrentItemActionButtonText(currentItemActionBtn, itemType === 'group' ? '新建群聊话题' : '新建聊天话题');
-        currentItemActionBtn.title = `为 ${itemName} 新建${itemType === 'group' ? '群聊话题' : '聊天话题'}`;
+        const itemTypeLabel = itemType === 'group' ? '（群组）' : '';
+        currentChatNameH3.textContent = `${itemName}${itemTypeLabel}`;
+        setCurrentItemActionButtonText(currentItemActionBtn, itemType === 'group' ? '新建群话题' : '新建聊天话题');
+        currentItemActionBtn.title = `${itemName} - ${itemType === 'group' ? '新建群话题' : '新建聊天话题'}`;
         currentItemActionBtn.style.display = 'inline-flex';
         
         if (voiceChatBtn) {
             voiceChatBtn.style.display = itemType === 'agent' ? 'inline-block' : 'none';
+        }
+        if (itemType === 'channel_mirror') {
+            currentItemActionBtn.style.display = 'none';
         }
 
         itemListManager.highlightActiveItem(itemId, itemType);
@@ -306,6 +313,8 @@ window.chatManager = (() => {
                 topics = await electronAPI.getAgentTopics(itemId);
             } else if (itemType === 'group') {
                 topics = await electronAPI.getGroupTopics(itemId);
+            } else if (itemType === 'channel_mirror') {
+                topics = await electronAPI.getChannelMirrorTopics(itemId);
             }
 
             if (topics && !topics.error && topics.length > 0) {
@@ -318,60 +327,61 @@ window.chatManager = (() => {
                 if (messageRenderer) messageRenderer.setCurrentTopicId(topicToLoadId);
                 await loadChatHistory(itemId, itemType, topicToLoadId);
             } else if (topics && topics.error) {
-                console.error(`加载 ${itemType} ${itemId} 的话题列表失败`, topics.error);
+                console.error(`加载 ${itemType} ${itemId} 的话题列表失败:`, topics.error);
                 if (messageRenderer) messageRenderer.renderMessage({ role: 'system', content: `加载话题列表失败: ${topics.error}`, timestamp: Date.now() });
                 await loadChatHistory(itemId, itemType, null);
             } else {
                 if (itemType === 'agent') {
                     const agentConfig = await electronAPI.getAgentConfig(itemId);
-                    // ⚠️ 检查是否返回错误对象
+                    // 閳跨媴绗?濡偓閺屻儲妲搁崥锕佺箲閸ョ偤鏁婄拠顖氼嚠鐠?
                     if (agentConfig && agentConfig.error) {
                         console.error(`[ChatManager] Failed to get agent config for ${itemId}:`, agentConfig.error);
-                        if (messageRenderer) messageRenderer.renderMessage({ role: 'system', content: `加载助手配置失败: ${agentConfig.error}`, timestamp: Date.now() });
+                        if (messageRenderer) messageRenderer.renderMessage({ role: 'system', content: `閸旂姾娴囬崝鈺傚闁板秶鐤嗘径杈Е: ${agentConfig.error}`, timestamp: Date.now() });
                         await loadChatHistory(itemId, itemType, null);
                     } else if (agentConfig && (!agentConfig.topics || agentConfig.topics.length === 0)) {
-                        const defaultTopicResult = await electronAPI.createNewTopicForAgent(itemId, "主要对话");
+                        const defaultTopicResult = await electronAPI.createNewTopicForAgent(itemId, '新聊天');
                         if (defaultTopicResult.success) {
                             currentTopicIdRef.set(defaultTopicResult.topicId);
                             if (messageRenderer) messageRenderer.setCurrentTopicId(defaultTopicResult.topicId);
                             await loadChatHistory(itemId, itemType, defaultTopicResult.topicId);
                         } else {
-                            if (messageRenderer) messageRenderer.renderMessage({ role: 'system', content: `创建默认话题失败: ${defaultTopicResult.error}`, timestamp: Date.now() });
+                            if (messageRenderer) messageRenderer.renderMessage({ role: 'system', content: `閸掓稑缂撴妯款吇鐠囨繈顣芥径杈Е: ${defaultTopicResult.error}`, timestamp: Date.now() });
                             await loadChatHistory(itemId, itemType, null);
                         }
                     } else {
                          await loadChatHistory(itemId, itemType, null);
                     }
                 } else if (itemType === 'group') {
-                    const defaultTopicResult = await electronAPI.createNewTopicForGroup(itemId, "主要群聊");
+                    const defaultTopicResult = await electronAPI.createNewTopicForGroup(itemId, '新群话题');
                     if (defaultTopicResult.success) {
                         currentTopicIdRef.set(defaultTopicResult.topicId);
                         if (messageRenderer) messageRenderer.setCurrentTopicId(defaultTopicResult.topicId);
                         await loadChatHistory(itemId, itemType, defaultTopicResult.topicId);
                     } else {
-                        if (messageRenderer) messageRenderer.renderMessage({ role: 'system', content: `创建默认群聊话题失败: ${defaultTopicResult.error}`, timestamp: Date.now() });
+                        if (messageRenderer) messageRenderer.renderMessage({ role: 'system', content: `閸掓稑缂撴妯款吇缂囥倛浜扮拠婵嬵暯婢惰精瑙? ${defaultTopicResult.error}`, timestamp: Date.now() });
                         await loadChatHistory(itemId, itemType, null);
                     }
                 }
             }
         } catch (e) {
-            console.error(`选择 ${itemType} ${itemId} 时发生错误: `, e);
-            if (messageRenderer) messageRenderer.renderMessage({ role: 'system', content: `选择${itemType === 'group' ? '群组' : '助手'}时出错: ${e.message}`, timestamp: Date.now() });
+            console.error(`选择 ${itemType} ${itemId} 时发生错误:`, e);
+            if (messageRenderer) messageRenderer.renderMessage({ role: 'system', content: `打开${itemType === 'group' ? '群组' : 'Agent'}失败: ${e.message}`, timestamp: Date.now() });
         }
 
-        messageInput.disabled = false;
-        sendMessageBtn.disabled = false;
-        attachFileBtn.disabled = false;
+        const isReadOnlyMirror = itemType === 'channel_mirror';
+        messageInput.disabled = isReadOnlyMirror;
+        sendMessageBtn.disabled = isReadOnlyMirror;
+        attachFileBtn.disabled = isReadOnlyMirror;
         // messageInput.focus();
         if (topicListManager) topicListManager.loadTopicList();
         _saveLastOpenState(); // Save state after selecting an item and its default topic
     }
  
     async function selectTopic(topicId) {
-        // 心流锁激活时，不允许切换话题
+        // 韫囧啯绁﹂柨浣圭负濞茬粯妞傞敍灞肩瑝閸忎浇顔忛崚鍥ㄥ床鐠囨繈顣?
         if (window.flowlockManager && window.flowlockManager.getState && window.flowlockManager.getState().isActive) {
             if (uiHelper && uiHelper.showToastNotification) {
-                uiHelper.showToastNotification('心流锁运行中，无法切换话题。请先停止心流锁。', 'warning');
+                uiHelper.showToastNotification('当前存在进行中的 Flowlock 任务，暂时不能切换话题。', 'warning');
             }
             console.log('[ChatManager] Blocked topic switch due to active Flowlock');
             return;
@@ -412,7 +422,7 @@ window.chatManager = (() => {
             if (messageRenderer) {
                 messageRenderer.renderMessage({
                     role: 'system',
-                    content: `打开话题失败: ${error.message}`,
+                    content: `閹垫挸绱戠拠婵嬵暯婢惰精瑙? ${error.message}`,
                     timestamp: Date.now()
                 });
             }
@@ -436,7 +446,7 @@ window.chatManager = (() => {
             if (messageRenderer) {
                 messageRenderer.setCurrentTopicId(null);
                 messageRenderer.clearChat();
-                messageRenderer.renderMessage({ role: 'system', content: '所有话题均已删除。请创建一个新话题。', timestamp: Date.now() });
+                messageRenderer.renderMessage({ role: 'system', content: '当前没有可用话题，请新建一个话题开始聊天。', timestamp: Date.now() });
             }
             await displayTopicTimestampBubble(currentSelectedItem.id, currentSelectedItem.type, null);
         }
@@ -471,7 +481,7 @@ window.chatManager = (() => {
         if (abortIfStale()) return;
     
         if (!itemId) {
-            const errorMsg = `错误：无法加载聊天记录，${itemType === 'group' ? '群组' : '助手'}ID (${itemId}) 缺失。`;
+            const errorMsg = `加载聊天记录失败：缺少${itemType === 'group' ? '群组' : 'Agent'} ID (${itemId}) 配置。`;
             console.error(errorMsg);
             if (messageRenderer) messageRenderer.renderMessage({ role: 'system', content: errorMsg, timestamp: Date.now() });
             await displayTopicTimestampBubble(null, null, null);
@@ -479,14 +489,14 @@ window.chatManager = (() => {
         }
     
         if (!topicId) {
-            if (messageRenderer) messageRenderer.renderMessage({ role: 'system', content: '请选择或创建一个话题以开始聊天。', timestamp: Date.now() });
+            if (messageRenderer) messageRenderer.renderMessage({ role: 'system', content: '未找到该话题，请先创建话题或切换到其他话题。', timestamp: Date.now() });
             await displayTopicTimestampBubble(itemId, itemType, null);
             return;
         }
     
-        // 核心修改：使用 await 确保加载消息被渲染
+        // 閺嶇绺炬穱顔芥暭閿涙矮濞囬悽?await 绾喕绻氶崝鐘烘祰濞戝牊浼呯悮顐ｈ閺?
         if (messageRenderer) {
-            await messageRenderer.renderMessage({ role: 'system', name: '系统', content: '加载聊天记录中...', timestamp: Date.now(), isThinking: true, id: 'loading_history' });
+            await messageRenderer.renderMessage({ role: 'system', name: '系统', content: '正在加载聊天记录...', timestamp: Date.now(), isThinking: true, id: 'loading_history' });
         }
         if (abortIfStale()) {
             if (messageRenderer) messageRenderer.removeMessageById('loading_history');
@@ -498,6 +508,8 @@ window.chatManager = (() => {
             historyResult = await electronAPI.getChatHistory(itemId, topicId);
         } else if (itemType === 'group') {
             historyResult = await electronAPI.getGroupChatHistory(itemId, topicId);
+        } else if (itemType === 'channel_mirror') {
+            historyResult = await electronAPI.getChannelMirrorHistory(itemId, topicId);
         }
 
         if (abortIfStale()) {
@@ -528,24 +540,23 @@ window.chatManager = (() => {
             currentChatHistoryRef.set(historyResult);
             window.updateSendButtonState?.();
             if (messageRenderer) {
-                // 使用优化的分批渲染策略
+                // Render history in batches to keep the UI responsive.
                 const renderOptions = {
-                    initialBatch: 5,    // 首先显示最新的5条消息
-                    batchSize: 10,      // 后续每批10条消息
-                    batchDelay: 80      // 批次间延迟 80ms，平衡性能和用户体验
+                    initialBatch: 5,
+                    batchSize: 10,
+                    batchDelay: 80
                 };
-                
-                console.log(`[ChatManager] 开始加载话题历史，共 ${historyResult.length} 条消息`);
+                console.log(`[ChatManager] 准备渲染 ${historyResult.length} 条历史消息...`);
                 await messageRenderer.renderHistory(historyResult, renderOptions);
                 if (abortIfStale()) return;
-                console.log(`[ChatManager] 话题历史加载完成`);
+                console.log('[ChatManager] 历史消息渲染完成。');
             }
     
         } else if (historyResult) { // History is empty
             currentChatHistoryRef.set([]);
             window.updateSendButtonState?.();
         } else {
-            if (messageRenderer) messageRenderer.renderMessage({ role: 'system', content: `加载话题 "${topicId}" 的聊天记录时返回了无效数据。`, timestamp: Date.now() });
+            if (messageRenderer) messageRenderer.renderMessage({ role: 'system', content: '话题 "' + topicId + '" 暂无聊天记录。', timestamp: Date.now() });
         }
 
         if (abortIfStale()) return;
@@ -582,9 +593,9 @@ window.chatManager = (() => {
 
             if (updatedMessage.content && fileName) {
                 const escapedFileName = fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const genericRegex = new RegExp(`\\n*\\s*\\[附加文件: [^\\]]*${escapedFileName}[^\\]]*\\]`, 'g');
-                const imageRegex = new RegExp(`\\n*\\s*\\[附加图片: [^\\]]*${escapedFileName}[^\\]]*\\]`, 'g');
-                const fullBlockRegex = new RegExp(`\\n*\\s*\\[附加文件: [^\\]]*${escapedFileName}[^\\]]*\\][\\s\\S]*?\\[/附加文件结束: [^\\]]*${escapedFileName}[^\\]]*\\]`, 'g');
+                const genericRegex = new RegExp(`\\n*\\s*\\[闂勫嫬濮為弬鍥︽: [^\\]]*${escapedFileName}[^\\]]*\\]`, 'g');
+                const imageRegex = new RegExp(`\\n*\\s*\\[闂勫嫬濮為崶鍓у: [^\\]]*${escapedFileName}[^\\]]*\\]`, 'g');
+                const fullBlockRegex = new RegExp(`\\n*\\s*\\[闂勫嫬濮為弬鍥︽: [^\\]]*${escapedFileName}[^\\]]*\\][\\s\\S]*?\\[/闂勫嫬濮為弬鍥︽缂佹挻娼? [^\\]]*${escapedFileName}[^\\]]*\\]`, 'g');
 
                 updatedMessage.content = updatedMessage.content
                     .replace(fullBlockRegex, '')
@@ -604,7 +615,7 @@ window.chatManager = (() => {
                 }
 
                 if (uiHelper && uiHelper.showToastNotification) {
-                    uiHelper.showToastNotification('附件已移除', 'success');
+                    uiHelper.showToastNotification('附件已移除。', 'success');
                 }
             } catch (error) {
                 console.error('[ChatManager] Failed to remove attachment:', error);
@@ -626,7 +637,7 @@ window.chatManager = (() => {
                     const arrayBuffer = e.target.result;
                     if (!arrayBuffer) {
                         console.warn(`[ChatManager] FileReader received null ArrayBuffer for ${file.name}`);
-                        resolve({ name: file.name, error: '无法读取文件内容' });
+                        resolve({ name: file.name, error: '閺冪姵纭剁拠璇插絿閺傚洣娆㈤崘鍛啇' });
                         return;
                     }
 
@@ -641,7 +652,7 @@ window.chatManager = (() => {
                 };
                 reader.onerror = (err) => {
                     console.error(`[ChatManager] FileReader error for ${file.name}:`, err);
-                    resolve({ name: file.name, error: `无法读取文件: ${err.message}` });
+                    resolve({ name: file.name, error: `閺冪姵纭剁拠璇插絿閺傚洣娆? ${err.message}` });
                 };
                 reader.readAsArrayBuffer(file);
             }));
@@ -685,7 +696,7 @@ window.chatManager = (() => {
 
             if (successfulAttachments.length === 0) {
                 if (uiHelper && uiHelper.showToastNotification) {
-                    uiHelper.showToastNotification('附件添加失败：无法处理文件', 'error');
+                    uiHelper.showToastNotification('附件添加失败，请检查文件后重试。', 'error');
                 }
                 return;
             }
@@ -705,12 +716,12 @@ window.chatManager = (() => {
             }
 
             if (uiHelper && uiHelper.showToastNotification) {
-                uiHelper.showToastNotification(`成功添加 ${successfulAttachments.length} 个附件`, 'success');
+                uiHelper.showToastNotification('已成功添加 ' + successfulAttachments.length + ' 个附件。', 'success');
             }
         } catch (error) {
             console.error('[ChatManager] Failed to add attachments:', error);
             if (uiHelper && uiHelper.showToastNotification) {
-                uiHelper.showToastNotification(`附件添加出错: ${error.message}`, 'error');
+                uiHelper.showToastNotification(`闂勫嫪娆㈠ǎ璇插閸戞椽鏁? ${error.message}`, 'error');
             }
         }
     }
@@ -784,13 +795,13 @@ window.chatManager = (() => {
         if (currentSelectedItem.type !== 'agent' || currentChatHistory.length < 4 || !currentTopicId) return;
 
         try {
-            // 强制从文件系统重新加载最新的配置，确保标题检查的准确性
+            // 瀵搫鍩楁禒搴㈡瀮娴犲墎閮寸紒鐔煎櫢閺傛澘濮炴潪鑺ユ付閺傛壆娈戦柊宥囩枂閿涘瞼鈥樻穱婵囩垼妫版ɑ顥呴弻銉ф畱閸戝棛鈥橀幀?
             const agentConfigForSummary = await electronAPI.getAgentConfig(currentSelectedItem.id);
             if (!agentConfigForSummary || agentConfigForSummary.error) {
                 console.error('[TopicSummary] Failed to get fresh agent config for summarization:', agentConfigForSummary?.error);
                 return;
             }
-            // 使用最新的配置更新内存中的状态，以保持同步
+            // 娴ｈ法鏁ら張鈧弬鎵畱闁板秶鐤嗛弴瀛樻煀閸愬懎鐡ㄦ稉顓犳畱閻樿埖鈧緤绱濇禒銉ょ箽閹镐礁鎮撳?
             if (currentSelectedItem.config) {
                 currentSelectedItem.config = agentConfigForSummary;
             } else {
@@ -800,16 +811,16 @@ window.chatManager = (() => {
 
             const topics = agentConfigForSummary.topics || [];
             const currentTopicObject = topics.find(t => t.id === currentTopicId);
-            const existingTopicTitle = currentTopicObject ? currentTopicObject.name : "主要对话";
+            const existingTopicTitle = currentTopicObject ? currentTopicObject.name : '新聊天';
             const currentAgentName = agentConfigForSummary.name || 'AI';
 
-            if (existingTopicTitle === "主要对话" || existingTopicTitle.startsWith("新话题")) {
+            if (existingTopicTitle === '新聊天' || existingTopicTitle.startsWith('聊天于')) {
                 if (messageRenderer && typeof messageRenderer.summarizeTopicFromMessages === 'function') {
                     const summarizedTitle = await messageRenderer.summarizeTopicFromMessages(currentChatHistory.filter(m => !m.isThinking), currentAgentName);
                     if (summarizedTitle) {
                         const saveResult = await electronAPI.saveAgentTopicTitle(currentSelectedItem.id, currentTopicId, summarizedTitle);
                         if (saveResult.success) {
-                            // 标题已保存到文件，现在更新内存中的对象以立即反映更改
+                            // 閺嶅洭顣藉韫箽鐎涙ê鍩岄弬鍥︽閿涘瞼骞囬崷銊︽纯閺傛澘鍞寸€涙ü鑵戦惃鍕嚠鐠炩€蹭簰缁斿宓嗛崣宥嗘Ё閺囧瓨鏁?
                             if (currentTopicObject) {
                                 currentTopicObject.name = summarizedTitle;
                             }
@@ -839,12 +850,19 @@ window.chatManager = (() => {
 
         if (!content && attachedFiles.length === 0) return;
         if (!currentSelectedItem.id || !currentTopicId) {
-            uiHelper.showToastNotification('请先选择一个项目和话题。', 'error');
+            uiHelper.showToastNotification('请先选择一个话题，再发送消息。', 'error');
             return;
         }
-        if (!globalSettings.vcpServerUrl) {
-            uiHelper.showToastNotification('请先在全局设置中配置 VCP 服务器 URL。', 'error');
+        const selectedModel = String(currentSelectedItem?.config?.model || '').trim().toLowerCase();
+        const usingOllamaModel = selectedModel.startsWith('ollama/');
+        if (!globalSettings.vcpServerUrl && !usingOllamaModel) {
+            uiHelper.showToastNotification('尚未配置 VCP 服务器地址，请先在全局设置中填写 VCP Server URL。', 'error');
             uiHelper.openModal('globalSettingsModal');
+            return;
+        }
+
+        if (currentSelectedItem.type === 'channel_mirror') {
+            uiHelper.showToastNotification('镜像会话当前为只读模式，不能直接在这里发送消息。', 'info');
             return;
         }
 
@@ -857,7 +875,7 @@ window.chatManager = (() => {
                     globalSettings.userName || '用户'
                 );
             } else {
-                uiHelper.showToastNotification("群聊功能模块未加载，无法发送消息。", 'error');
+                uiHelper.showToastNotification("群聊渲染器不可用，暂时无法发送群消息。", 'error');
             }
             messageInput.value = '';
             attachedFilesRef.set([]);
@@ -870,7 +888,7 @@ window.chatManager = (() => {
         // --- Standard Agent Message Sending ---
         // The 'content' variable still holds the user's raw input, including the placeholder.
         // We will resolve the placeholder later, only for the final message sent to VCP.
-        let combinedTextContent = content; // 用于发送给VCP的组合文本内容
+        let combinedTextContent = content; // 閻劋绨崣鎴︹偓浣虹舶VCP閻ㄥ嫮绮嶉崥鍫熸瀮閺堫剙鍞寸€?
  
         const uiAttachments = [];
         if (attachedFiles.length > 0) {
@@ -884,18 +902,18 @@ window.chatManager = (() => {
                     _fileManagerData: fileManagerData
                 });
 
-                // 修正：将文件路径和提取的文本正确地附加到 combinedTextContent
+                // 娣囶喗顒滈敍姘殺閺傚洣娆㈢捄顖氱窞閸滃本褰侀崣鏍畱閺傚洦婀板锝団€橀崷浼存閸旂姴鍩?combinedTextContent
                 const filePathForContext = af.localPath || af.originalName;
 
                 if (af.file.type.startsWith('image/')) {
-                    // 对于图片，我们只附加路径，因为内容将作为多模态部分发送
-                    combinedTextContent += `\n\n[附加图片: ${filePathForContext}]`;
+                    // 鐎甸€涚艾閸ュ墽澧栭敍灞惧灉娴狀剙褰ч梽鍕鐠侯垰绶為敍灞芥礈娑撳搫鍞寸€圭懓鐨㈡担婊€璐熸径姘侀幀渚€鍎撮崚鍡楀絺闁?
+                    combinedTextContent += `\n\n[闂勫嫬濮為崶鍓у: ${filePathForContext}]`;
                 } else if (fileManagerData.extractedText) {
-                    // 对于有提取文本的文件，同时附加路径和文本
-                    combinedTextContent += `\n\n[附加文件: ${filePathForContext}]\n${fileManagerData.extractedText}\n[/附加文件结束: ${af.originalName}]`;
+                    // 鐎甸€涚艾閺堝褰侀崣鏍ㄦ瀮閺堫剛娈戦弬鍥︽閿涘苯鎮撻弮鍫曟閸旂姾鐭惧鍕嫲閺傚洦婀?
+                    combinedTextContent += `\n\n[闂勫嫬濮為弬鍥︽: ${filePathForContext}]\n${fileManagerData.extractedText}\n[/闂勫嫬濮為弬鍥︽缂佹挻娼? ${af.originalName}]`;
                 } else {
-                    // 对于其他文件（如音频、视频、无文本的PDF等），只附加路径
-                    combinedTextContent += `\n\n[附加文件: ${filePathForContext}]`;
+                    // 鐎甸€涚艾閸忔湹绮弬鍥︽閿涘牆顩ч棅鎶筋暥閵嗕浇顫嬫０鎴欌偓浣规￥閺傚洦婀伴惃鍑盌F缁涘绱氶敍灞藉涧闂勫嫬濮炵捄顖氱窞
+                    combinedTextContent += `\n\n[闂勫嫬濮為弬鍥︽: ${filePathForContext}]`;
                 }
             }
         }
@@ -936,13 +954,13 @@ window.chatManager = (() => {
             messageInput.value = CANVAS_PLACEHOLDER;
         }
         uiHelper.autoResizeTextarea(messageInput);
-        // messageInput.focus(); // 核心修正：注释掉此行。这是导致AI流式输出时，即使向上滚动也会被强制拉回底部的根源。
+        // messageInput.focus(); // 閺嶇绺炬穱顔筋劀閿涙碍鏁為柌濠冨竴濮濄倛顢戦妴鍌濈箹閺勵垰顕遍懛纰匢濞翠礁绱℃潏鎾冲毉閺冭绱濋崡鍏呭▏閸氭垳绗傚姘З娑旂喍绱扮悮顐㈠繁閸掕埖濯洪崶鐐茬俺闁劎娈戦弽瑙勭爱閵?
 
         const thinkingMessageId = `msg_${Date.now()}_assistant_${Math.random().toString(36).substring(2, 9)}`;
         const thinkingMessage = {
             role: 'assistant',
-            name: currentSelectedItem.name || currentSelectedItem.id || 'AI', // 修复：使用 ID 作为更可靠的回退
-            content: '思考中',
+            name: currentSelectedItem.name || currentSelectedItem.id || 'AI', // 娣囶喖顦查敍姘▏閻?ID 娴ｆ粈璐熼弴鏉戝讲闂堢姷娈戦崶鐐衡偓鈧?
+            content: '思考中...',
             timestamp: Date.now(),
             id: thinkingMessageId,
             isThinking: true,
@@ -971,44 +989,44 @@ window.chatManager = (() => {
                 let vcpVideoAttachmentsPayload = [];
                 let currentMessageTextContent = msg.content;
 
-                // --- 应用正则规则（后端上下文）---
+                // --- 鎼存梻鏁ゅ锝呭灟鐟欏嫬鍨敍鍫濇倵缁旑垯绗傛稉瀣瀮閿?--
                 if (agentConfig?.stripRegexes && Array.isArray(agentConfig.stripRegexes) && agentConfig.stripRegexes.length > 0) {
-                    // --- 按“对话轮次”计算深度 ---
+                    // --- 閹稿鈧粌顕拠婵婄枂濞嗏檧鈧繆顓哥粻妤佺箒鎼?---
                     const turns = [];
                     for (let i = historySnapshotForVCP.length - 1; i >= 0; i--) {
                         if (historySnapshotForVCP[i].role === 'assistant') {
                             const turn = { assistant: historySnapshotForVCP[i], user: null };
                             if (i > 0 && historySnapshotForVCP[i - 1].role === 'user') {
                                 turn.user = historySnapshotForVCP[i - 1];
-                                i--; // 跳过用户消息，因为已经配对
+                                i--; // 鐠哄疇绻冮悽銊﹀煕濞戝牊浼呴敍灞芥礈娑撳搫鍑＄紒蹇涘帳鐎?
                             }
                             turns.unshift(turn);
                         } else if (historySnapshotForVCP[i].role === 'user') {
-                            // 处理末尾的单个用户消息
+                            // 婢跺嫮鎮婇張顐㈢啲閻ㄥ嫬宕熸稉顏嗘暏閹撮攱绉烽幁?
                             turns.unshift({ assistant: null, user: historySnapshotForVCP[i] });
                         }
                     }
                     
-                    // 找到当前消息所在的轮次
+                    // 閹垫儳鍩岃ぐ鎾冲濞戝牊浼呴幍鈧崷銊ф畱鏉烆喗顐?
                     const turnIndex = turns.findIndex(t => (t.assistant && t.assistant.id === msg.id) || (t.user && t.user.id === msg.id));
                     const depth = turnIndex !== -1 ? (turns.length - 1 - turnIndex) : -1;
 
                     if (depth !== -1) {
-                        // 应用规则到消息内容
+                        // 鎼存梻鏁ょ憴鍕灟閸掔増绉烽幁顖氬敶鐎?
                         currentMessageTextContent = applyRegexRules(
                             currentMessageTextContent,
                             agentConfig.stripRegexes,
-                            'context',  // 这里处理的是发送给AI的上下文
+                            'context',  // 鏉╂瑩鍣锋径鍕倞閻ㄥ嫭妲搁崣鎴︹偓浣虹舶AI閻ㄥ嫪绗傛稉瀣瀮
                             msg.role,
                             depth
                         );
                     }
-                    // --- 深度计算和应用结果 ---
+                    // --- 濞ｅ崬瀹崇拋锛勭暬閸滃苯绨查悽銊х波閺?---
                 }
-                // --- 正则规则应用结束 ---
+                // --- 濮濓絽鍨憴鍕灟鎼存梻鏁ょ紒鎾存将 ---
 
                 if (msg.role === 'user' && msg.id === userMessage.id) {
-                    // 关键修复：使用已经包含附件内容的 combinedTextContent
+                    // 閸忔娊鏁穱顔碱槻閿涙矮濞囬悽銊ュ嚒缂佸繐瀵橀崥顐︽娴犺泛鍞寸€瑰湱娈?combinedTextContent
                     currentMessageTextContent = combinedTextContent;
                     
                     // IMPORTANT: We need to handle Canvas placeholder WITHOUT overwriting the combined content
@@ -1033,17 +1051,17 @@ window.chatManager = (() => {
                     let historicalAppendedText = "";
                     for (const att of msg.attachments) {
                         const fileManagerData = att._fileManagerData || {};
-                        // 优先使用 att.src，因为它代表前端的本地可访问路径
-                        // 后备为 internalPath（来自 fileManager），最后才是文件名
-                        const filePathForContext = att.src || (fileManagerData.internalPath ? fileManagerData.internalPath.replace('file://', '') : (att.name || '未知文件'));
+                        // 娴兼ê鍘涙担璺ㄦ暏 att.src閿涘苯娲滄稉鍝勭暊娴狅綀銆冮崜宥囶伂閻ㄥ嫭婀伴崷鏉垮讲鐠佸潡妫剁捄顖氱窞
+                        // 閸氬骸顦稉?internalPath閿涘牊娼甸懛?fileManager閿涘绱濋張鈧崥搴㈠閺勵垱鏋冩禒璺烘倳
+                        const filePathForContext = att.src || (fileManagerData.internalPath ? fileManagerData.internalPath.replace('file://', '') : (att.name || '閺堫亞鐓￠弬鍥︽'));
 
                         if (fileManagerData.imageFrames && fileManagerData.imageFrames.length > 0) {
-                             historicalAppendedText += `\n\n[附加文件: ${filePathForContext} (扫描版PDF，已转换为图片)]`;
+                             historicalAppendedText += `\n\n[闂勫嫬濮為弬鍥︽: ${filePathForContext} (閹殿偅寮块悧鍦F閿涘苯鍑℃潪顒佸床娑撳搫娴橀悧?]`;
                         } else if (fileManagerData.extractedText) {
-                            historicalAppendedText += `\n\n[附加文件: ${filePathForContext}]\n${fileManagerData.extractedText}\n[/附加文件结束: ${att.name || '未知文件'}]`;
+                            historicalAppendedText += `\n\n[闂勫嫬濮為弬鍥︽: ${filePathForContext}]\n${fileManagerData.extractedText}\n[/闂勫嫬濮為弬鍥︽缂佹挻娼? ${att.name || '閺堫亞鐓￠弬鍥︽'}]`;
                         } else {
-                            // 对于没有提取文本的文件（如音视频），只附加路径
-                            historicalAppendedText += `\n\n[附加文件: ${filePathForContext}]`;
+                            // 鐎甸€涚艾濞屸剝婀侀幓鎰絿閺傚洦婀伴惃鍕瀮娴犺绱欐俊鍌炵叾鐟欏棝顣堕敍澶涚礉閸欘亪妾崝鐘虹熅瀵?
+                            historicalAppendedText += `\n\n[闂勫嫬濮為弬鍥︽: ${filePathForContext}]`;
                         }
                     }
                     currentMessageTextContent += historicalAppendedText;
@@ -1070,14 +1088,14 @@ window.chatManager = (() => {
                                         image_url: { url: `data:image/jpeg;base64,${frameData}` }
                                     }));
                                 } else {
-                                    const errorMsg = result ? result.error : '未知错误';
+                                    const errorMsg = result ? result.error : '閺堫亞鐓￠柨娆掝嚖';
                                     console.error(`Failed to get Base64 for ${att.name}: ${errorMsg}`);
-                                    uiHelper.showToastNotification(`处理图片 ${att.name} 失败: ${errorMsg}`, 'error');
+                                    uiHelper.showToastNotification(`婢跺嫮鎮婇崶鍓у ${att.name} 婢惰精瑙? ${errorMsg}`, 'error');
                                     return null;
                                 }
                             } catch (processingError) {
                                 console.error(`Exception during getBase64 for ${att.name}:`, processingError);
-                                uiHelper.showToastNotification(`处理图片 ${att.name} 时发生异常: ${processingError.message}`, 'error');
+                                uiHelper.showToastNotification(`婢跺嫮鎮婇崶鍓у ${att.name} 閺冭泛褰傞悽鐔风磽鐢? ${processingError.message}`, 'error');
                                 return null;
                             }
                         }
@@ -1101,14 +1119,14 @@ window.chatManager = (() => {
                                         image_url: { url: `data:${att.type};base64,${frameData}` }
                                     }));
                                 } else {
-                                    const errorMsg = result ? result.error : '未知错误';
+                                    const errorMsg = result ? result.error : '閺堫亞鐓￠柨娆掝嚖';
                                     console.error(`Failed to get Base64 for audio ${att.name}: ${errorMsg}`);
-                                    uiHelper.showToastNotification(`处理音频 ${att.name} 失败: ${errorMsg}`, 'error');
+                                    uiHelper.showToastNotification(`婢跺嫮鎮婇棅鎶筋暥 ${att.name} 婢惰精瑙? ${errorMsg}`, 'error');
                                     return null;
                                 }
                             } catch (processingError) {
                                 console.error(`Exception during getBase64 for audio ${att.name}:`, processingError);
-                                uiHelper.showToastNotification(`处理音频 ${att.name} 时发生异常: ${processingError.message}`, 'error');
+                                uiHelper.showToastNotification(`婢跺嫮鎮婇棅鎶筋暥 ${att.name} 閺冭泛褰傞悽鐔风磽鐢? ${processingError.message}`, 'error');
                                 return null;
                             }
                         });
@@ -1127,14 +1145,14 @@ window.chatManager = (() => {
                                         image_url: { url: `data:${att.type};base64,${frameData}` }
                                     }));
                                 } else {
-                                    const errorMsg = result ? result.error : '未知错误';
+                                    const errorMsg = result ? result.error : '閺堫亞鐓￠柨娆掝嚖';
                                     console.error(`Failed to get Base64 for video ${att.name}: ${errorMsg}`);
-                                    uiHelper.showToastNotification(`处理视频 ${att.name} 失败: ${errorMsg}`, 'error');
+                                    uiHelper.showToastNotification(`婢跺嫮鎮婄憴鍡涱暥 ${att.name} 婢惰精瑙? ${errorMsg}`, 'error');
                                     return null;
                                 }
                             } catch (processingError) {
                                 console.error(`Exception during getBase64 for video ${att.name}:`, processingError);
-                                uiHelper.showToastNotification(`处理视频 ${att.name} 时发生异常: ${processingError.message}`, 'error');
+                                uiHelper.showToastNotification(`婢跺嫮鎮婄憴鍡涱暥 ${att.name} 閺冭泛褰傞悽鐔风磽鐢? ${processingError.message}`, 'error');
                                 return null;
                             }
                         });
@@ -1151,7 +1169,7 @@ window.chatManager = (() => {
                 finalContentPartsForVCP.push(...vcpVideoAttachmentsPayload);
 
                 if (finalContentPartsForVCP.length === 0 && msg.role === 'user') {
-                     finalContentPartsForVCP.push({ type: 'text', text: '(用户发送了附件，但无文本或图片内容)' });
+                     finalContentPartsForVCP.push({ type: 'text', text: '(閻劍鍩涢崣鎴︹偓浣风啊闂勫嫪娆㈤敍灞肩稻閺冪姵鏋冮張顒佸灗閸ュ墽澧栭崘鍛啇)' });
                 }
                 
                 return { role: msg.role, content: finalContentPartsForVCP.length > 0 ? finalContentPartsForVCP : msg.content };
@@ -1161,15 +1179,15 @@ window.chatManager = (() => {
                 let systemPromptContent = agentConfig.systemPrompt.replace(/\{\{AgentName\}\}/g, agentConfig.name || currentSelectedItem.id);
                 const prependedContent = [];
 
-                // 任务2: 注入聊天记录文件路径
-                // 假设 agentConfig 对象中包含一个 agentDataPath 属性，该属性由主进程在加载代理配置时提供。
+                // 娴犺濮?: 濞夈劌鍙嗛懕濠傘亯鐠佹澘缍嶉弬鍥︽鐠侯垰绶?
+                // 閸嬪洩顔?agentConfig 鐎电钖勬稉顓炲瘶閸氼偂绔存稉?agentDataPath 鐏炵偞鈧嶇礉鐠囥儱鐫橀幀褏鏁辨稉鏄忕箻缁嬪婀崝鐘烘祰娴狅絿鎮婇柊宥囩枂閺冭埖褰佹笟娑栤偓?
                 if (agentConfig.agentDataPath && currentTopicId) {
-                    // 修正：currentTopicId 本身就包含 "topic_" 前缀，无需重复添加
+                    // 娣囶喗顒滈敍姝漸rrentTopicId 閺堫剝闊╃亸鍗炲瘶閸?"topic_" 閸撳秶绱戦敍灞炬￥闂団偓闁插秴顦插ǎ璇插
                     const historyPath = `${agentConfig.agentDataPath}\\topics\\${currentTopicId}\\history.json`;
-                    prependedContent.push(`当前聊天记录文件路径: ${historyPath}`);
+                    prependedContent.push(`瑜版挸澧犻懕濠傘亯鐠佹澘缍嶉弬鍥︽鐠侯垰绶? ${historyPath}`);
                 }
 
-                // 任务1: 注入话题创建时间
+                // 娴犺濮?: 濞夈劌鍙嗙拠婵嬵暯閸掓稑缂撻弮鍫曟？
                 if (agentConfig.topics && currentTopicId) {
                     const currentTopicObj = agentConfig.topics.find(t => t.id === currentTopicId);
                     if (currentTopicObj && currentTopicObj.createdAt) {
@@ -1207,7 +1225,7 @@ window.chatManager = (() => {
 
             const context = {
                 agentId: currentSelectedItem.id,
-                agentName: currentSelectedItem.name || currentSelectedItem.id, // 修复：为单聊上下文添加 agentName，并使用 ID 作为回退
+                agentName: currentSelectedItem.name || currentSelectedItem.id, // 娣囶喖顦查敍姘礋閸楁洝浜版稉濠佺瑓閺傚洦鍧婇崝?agentName閿涘苯鑻熸担璺ㄦ暏 ID 娴ｆ粈璐熼崶鐐衡偓鈧?
                 topicId: currentTopicId,
                 isGroupMessage: false
             };
@@ -1242,14 +1260,14 @@ window.chatManager = (() => {
 
                 if (response.error) {
                     if (isForActiveChat && messageRenderer) {
-                        messageRenderer.renderMessage({ role: 'system', content: `VCP错误: ${response.error}`, timestamp: Date.now() });
+                        messageRenderer.renderMessage({ role: 'system', content: `VCP闁挎瑨顕? ${response.error}`, timestamp: Date.now() });
                     }
                     console.error(`[ChatManager] VCP Error for background message:`, response.error);
                 } else if (response.choices && response.choices.length > 0) {
                     const assistantMessageContent = response.choices[0].message.content;
                     const assistantMessage = {
                         role: 'assistant',
-                        name: responseContext?.agentName || responseContext?.agentId || 'AI', // 修复：使用 context 中的 agentName 或 agentId 作为回退
+                        name: responseContext?.agentName || responseContext?.agentId || 'AI', // 娣囶喖顦查敍姘▏閻?context 娑擃厾娈?agentName 閹?agentId 娴ｆ粈璐熼崶鐐衡偓鈧?
                         avatarUrl: currentSelectedItem.avatarUrl, // This might be incorrect if user switched, but it's a minor UI detail for background saves.
                         avatarColor: (currentSelectedItem.config || currentSelectedItem)?.avatarCalculatedColor,
                         content: assistantMessageContent,
@@ -1281,7 +1299,7 @@ window.chatManager = (() => {
                     }
                 } else {
                     if (isForActiveChat && messageRenderer) {
-                        messageRenderer.renderMessage({ role: 'system', content: 'VCP 返回了未知格式的响应。', timestamp: Date.now() });
+                        messageRenderer.renderMessage({ role: 'system', content: 'VCP 返回了空响应，请稍后重试。', timestamp: Date.now() });
                     }
                 }
             } else {
@@ -1290,14 +1308,14 @@ window.chatManager = (() => {
                 } else if (vcpResponse && !vcpResponse.streamingStarted && !vcpResponse.streamError) {
                     console.warn("Expected streaming to start, but main process returned non-streaming or error:", vcpResponse);
                     if (messageRenderer) messageRenderer.removeMessageById(thinkingMessage.id); // This will also remove from history
-                    if (messageRenderer) messageRenderer.renderMessage({ role: 'system', content: '请求流式回复失败，收到非流式响应或错误。', timestamp: Date.now() });
+                    if (messageRenderer) messageRenderer.renderMessage({ role: 'system', content: '消息流没有正常启动，请检查后端状态后重试。', timestamp: Date.now() });
                     // No need to save again here as removeMessageById handles it if configured
                 }
             }
         } catch (error) {
-            console.error('发送消息或处理VCP响应时出错', error);
+            console.error('调用 VCP 发送消息时出错:', error);
             if (messageRenderer) messageRenderer.removeMessageById(thinkingMessage.id);
-            if (messageRenderer) messageRenderer.renderMessage({ role: 'system', content: `错误: ${error.message}`, timestamp: Date.now() });
+            if (messageRenderer) messageRenderer.renderMessage({ role: 'system', content: `发送消息失败: ${error.message}`, timestamp: Date.now() });
             if(currentSelectedItem.id && currentTopicId) {
                 await electronAPI.saveChatHistory(currentSelectedItem.id, currentTopicId, currentChatHistoryRef.get().filter(msg => !msg.isThinking));
             }
@@ -1306,13 +1324,17 @@ window.chatManager = (() => {
 
     async function createNewTopicForItem(itemId, itemType) {
         if (!itemId) {
-            uiHelper.showToastNotification("请先选择一个项目。", 'error');
+            uiHelper.showToastNotification('缺少目标对象，无法创建新话题。', 'error');
             return;
         }
         
         const currentSelectedItem = currentSelectedItemRef.get();
-        const itemName = currentSelectedItem.name || (itemType === 'group' ? "当前群组" : "当前助手");
-        const newTopicName = `新话题 ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+        if (itemType === 'channel_mirror') {
+            uiHelper.showToastNotification('镜像会话当前为只读模式，不能在这里新建话题。', 'info');
+            return;
+        }
+        const itemName = currentSelectedItem.name || (itemType === 'group' ? '群组' : 'Agent');
+        const newTopicName = `聊天于 ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
         
         try {
             let result;
@@ -1330,11 +1352,11 @@ window.chatManager = (() => {
                 if (messageRenderer) {
                     messageRenderer.setCurrentTopicId(result.topicId);
                     messageRenderer.clearChat();
-                    // messageRenderer.renderMessage({ role: 'system', content: `新话题 "${result.topicName}" 已开始。`, timestamp: Date.now() });
+                    // messageRenderer.renderMessage({ role: 'system', content: `閺傛媽鐦芥０?"${result.topicName}" 瀹告彃绱戞慨瀣ㄢ偓淇? timestamp: Date.now() });
                 }
                 localStorage.setItem(`lastActiveTopic_${itemId}_${itemType}`, result.topicId);
                 
-                // 🔧 关键修复：为新建的话题启动文件监听器
+                // 棣冩暋 閸忔娊鏁穱顔碱槻閿涙矮璐熼弬鏉跨紦閻ㄥ嫯鐦芥０妯烘儙閸斻劍鏋冩禒鍓佹磧閸氼剙娅?
                 const agentConfigForWatcher = currentSelectedItem.config || currentSelectedItem;
                 if (electronAPI.watcherStart && agentConfigForWatcher?.agentDataPath) {
                     const historyFilePath = `${agentConfigForWatcher.agentDataPath}\\topics\\${result.topicId}\\history.json`;
@@ -1349,11 +1371,11 @@ window.chatManager = (() => {
                 await displayTopicTimestampBubble(itemId, itemType, result.topicId);
                 // elements.messageInput.focus();
             } else {
-                uiHelper.showToastNotification(`创建新话题失败: ${result ? result.error : '未知错误'}`, 'error');
+                uiHelper.showToastNotification(`閸掓稑缂撻弬鎷岀樈妫版ê銇戠拹? ${result ? result.error : '閺堫亞鐓￠柨娆掝嚖'}`, 'error');
             }
         } catch (error) {
-            console.error(`创建新话题时出错:`, error);
-            uiHelper.showToastNotification(`创建新话题时出错: ${error.message}`, 'error');
+            console.error(`閸掓稑缂撻弬鎷岀樈妫版ɑ妞傞崙娲晩:`, error);
+            uiHelper.showToastNotification(`閸掓稑缂撻弬鎷岀樈妫版ɑ妞傞崙娲晩: ${error.message}`, 'error');
         }
     }
 
@@ -1365,7 +1387,7 @@ window.chatManager = (() => {
         const itemType = currentSelectedItem.type;
 
         if ((itemType !== 'agent' && itemType !== 'group') || !currentSelectedItem.id || !currentTopicId || !selectedMessage) {
-            uiHelper.showToastNotification("无法创建分支：当前非 Agent/群组聊天或缺少必要信息。", 'error');
+            uiHelper.showToastNotification('当前上下文不完整，无法创建分支话题。', 'error');
             return;
         }
 
@@ -1373,13 +1395,13 @@ window.chatManager = (() => {
         const messageIndex = currentChatHistory.findIndex(msg => msg.id === messageId);
 
         if (messageIndex === -1) {
-            uiHelper.showToastNotification("无法创建分支：在当前聊天记录中未找到选定消息。", 'error');
+            uiHelper.showToastNotification('未找到目标消息，无法创建分支话题。', 'error');
             return;
         }
 
         const historyForNewBranch = currentChatHistory.slice(0, messageIndex + 1);
         if (historyForNewBranch.length === 0) {
-            uiHelper.showToastNotification("无法创建分支：没有可用于创建分支的消息。", 'error');
+            uiHelper.showToastNotification('分支内容为空，无法创建分支话题。', 'error');
             return;
         }
 
@@ -1394,13 +1416,13 @@ window.chatManager = (() => {
             }
 
             if (!itemConfig || itemConfig.error) {
-                uiHelper.showToastNotification(`创建分支失败：无法获取${itemType === 'agent' ? '助手' : '群组'}配置。${itemConfig?.error || ''}`, 'error');
+                uiHelper.showToastNotification(`读取${itemType === 'agent' ? 'Agent' : '群组'}配置失败: ${itemConfig?.error || ''}`, 'error');
                 return;
             }
 
             originalTopic = itemConfig.topics.find(t => t.id === currentTopicId);
-            const originalTopicName = normalizeTopicTitle(originalTopic ? originalTopic.name : "未命名话题");
-            const newBranchTopicName = `${originalTopicName} (分支)`;
+            const originalTopicName = normalizeTopicTitle(originalTopic ? originalTopic.name : '原话题');
+            const newBranchTopicName = originalTopicName + '（分支）';
 
             if (itemType === 'agent') {
                 createResult = await electronAPI.createNewTopicForAgent(itemId, newBranchTopicName, true);
@@ -1409,7 +1431,7 @@ window.chatManager = (() => {
             }
 
             if (!createResult || !createResult.success || !createResult.topicId) {
-                uiHelper.showToastNotification(`创建分支话题失败: ${createResult ? createResult.error : '未知错误'}`, 'error');
+                uiHelper.showToastNotification(`閸掓稑缂撻崚鍡樻暜鐠囨繈顣芥径杈Е: ${createResult ? createResult.error : '閺堫亞鐓￠柨娆掝嚖'}`, 'error');
                 return;
             }
 
@@ -1422,7 +1444,7 @@ window.chatManager = (() => {
             }
 
             if (!saveResult || !saveResult.success) {
-                uiHelper.showToastNotification(`无法将历史记录保存到新的分支话题: ${saveResult ? saveResult.error : '未知错误'}`, 'error');
+                uiHelper.showToastNotification(`保存分支话题失败: ${saveResult ? saveResult.error : '未知错误'}`, 'error');
                 // Clean up empty branch topic
                 if (itemType === 'agent') {
                     await electronAPI.deleteTopic(itemId, newTopicId);
@@ -1441,11 +1463,11 @@ window.chatManager = (() => {
             await loadChatHistory(itemId, itemType, newTopicId);
             localStorage.setItem(`lastActiveTopic_${itemId}_${itemType}`, newTopicId);
 
-            uiHelper.showToastNotification(`已成功创建分支话题 "${newBranchTopicName}" 并切换。`);
+            uiHelper.showToastNotification('已创建分支话题 "' + newBranchTopicName + '" 并切换。', 'success');
 
         } catch (error) {
-            console.error("创建分支时发生错误:", error);
-            uiHelper.showToastNotification(`创建分支时发生内部错误: ${error.message}`, 'error');
+            console.error("閸掓稑缂撻崚鍡樻暜閺冭泛褰傞悽鐔兼晩鐠?", error);
+            uiHelper.showToastNotification('创建分支话题失败: ' + error.message, 'error');
         }
     }
 
@@ -1461,7 +1483,7 @@ window.chatManager = (() => {
         }
 
         if (!targetItemFullConfig || targetItemFullConfig.error) {
-            uiHelper.showToastNotification(`转发失败: 无法获取目标配置。`, 'error');
+            uiHelper.showToastNotification('转发失败: 无法读取目标会话配置。', 'error');
             return;
         }
 
@@ -1525,7 +1547,7 @@ window.chatManager = (() => {
     async function syncHistoryFromFile(itemId, itemType, topicId) {
         if (!messageRenderer) return;
 
-        // 🔧 检查是否有正在进行的编辑操作
+        // 棣冩暋 濡偓閺屻儲妲搁崥锔芥箒濮濓絽婀潻娑滎攽閻ㄥ嫮绱潏鎴炴惙娴?
         const isEditing = document.querySelector('.message-item-editing');
         if (isEditing) {
             console.log('[Sync] Aborting sync because a message is currently being edited.');

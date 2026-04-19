@@ -1090,6 +1090,12 @@ function initialize(params) {
                 return { success: true, appId };
             }
 
+            if (appAction === 'open-silver-companion-window') {
+                const plugin = require(path.join(PROJECT_ROOT, 'VCPDistributedServer', 'Plugin', 'SilverCompanion', 'SilverCompanion'));
+                await plugin.processToolCall({ command: 'OpenSilverCompanionDashboard' });
+                return { success: true, appId: 'silver_companion' };
+            }
+
             if (appAction === 'launch-human-toolbox') {
                 return await launchStandaloneElectronApp('VCPHumanToolBox', 'Human Toolbox');
             }

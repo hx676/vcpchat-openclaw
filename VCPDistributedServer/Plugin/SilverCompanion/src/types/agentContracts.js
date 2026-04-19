@@ -1,0 +1,31 @@
+const EMPTY_ANALYZER_RESULT = Object.freeze({
+    emotion_summary: '',
+    emotion_risk_level: 'low',
+    family_summary_headline: '',
+    family_key_events: [],
+    family_actions: [],
+    companion_guidance: '',
+    companion_mode: 'natural_companion',
+    tone_rule: '',
+    forbidden_phrases: [],
+    allowed_focus_topics: [],
+    must_avoid_topics: [],
+    reply_goal: '',
+    handoff_required: false,
+    handoff_reason: '',
+    confidence_note: '',
+    memory_should_write: false,
+    memory_summary: '',
+    memory_tags: [],
+    memory_priority: 'low',
+    analysis_memory_should_write: false,
+    analysis_memory_summary: '',
+    analysis_memory_tags: [],
+    analysis_memory_priority: 'low',
+    analysis_memory_category: 'health_trend',
+    profile_updates: {},
+});
+
+module.exports = {
+    EMPTY_ANALYZER_RESULT,
+};

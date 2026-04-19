@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: file:; connect-src *;">
+    <title>模型网关管理</title>
+    <link rel="stylesheet" href="gateway.css">
+</head>
+<body>
+    <header class="titlebar">
+        <div class="brand">
+            <span class="brand-mark">GW</span>
+            <div>
+                <strong>模型网关管理</strong>
+                <small>VCP 6005 + ccproxy 8000 + Codex 登录态</small>
+            </div>
+        </div>
+        <div class="title-actions">
+            <button id="refreshBtn" class="ghost-btn">刷新状态</button>
+            <button id="minimizeBtn" class="window-btn">一</button>
+            <button id="maximizeBtn" class="window-btn">□</button>
+            <button id="closeBtn" class="window-btn danger">×</button>
+        </div>
+    </header>
+
+    <main class="shell">
+        <section class="hero-card">
+            <div>
+                <p class="eyebrow">当前链路</p>
+                <h1>先看端口，再看登录态。</h1>
+                <p class="hero-copy">这里负责把“服务有没有活着、当前用哪个 Codex 账号、要不要重启上游”放在一个地方。账号 token 不会在界面展示。</p>
+            </div>
+            <div class="hero-meter">
+                <span id="overallStatusDot" class="dot"></span>
+                <strong id="overallStatusText">检查中</strong>
+                <small id="checkedAtText">等待刷新</small>
+            </div>
+        </section>
+
+        <section class="status-grid">
+            <article class="status-card" id="vcpCard">
+                <div class="card-topline">
+                    <span class="card-icon">6005</span>
+                    <span id="vcpStatus" class="pill muted">未知</span>
+                </div>
+                <h2>VCPToolBox</h2>
+                <p id="vcpDetail">负责接收 VCPChat 请求。</p>
+                <code id="vcpOwner">PID: -</code>
+            </article>
+
+            <article class="status-card" id="ccproxyCard">
+                <div class="card-topline">
+                    <span class="card-icon">8000</span>
+                    <span id="ccproxyStatus" class="pill muted">未知</span>
+                </div>
+                <h2>ccproxy / Codex</h2>
+                <p id="ccproxyDetail">负责转发到 ChatGPT/Codex 登录态。</p>
+                <code id="ccproxyOwner">PID: -</code>
+            </article>
+
+            <article class="status-card">
+                <div class="card-topline">
+                    <span class="card-icon">模型</span>
+                    <span id="keyStatus" class="pill muted">未知</span>
+                </div>
+                <h2 id="modelName">-</h2>
+                <p id="vcpUrl">-</p>
+                <code id="keyPreview">Key: -</code>
+                <p id="quotaHint" class="hint">剩余额度：当前无法直接查询</p>
+            </article>
+        </section>
+
+        <section class="panel">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">服务操作</p>
+                    <h2>常用动作</h2>
+                </div>
+                <p>启动/重启只影响本机 `8000` 的 ccproxy，不会修改你的 VCPChat 设置。</p>
+            </div>
+            <div class="action-grid">
+                <button id="startCcproxyBtn" class="action-btn primary">启动 ccproxy</button>
+                <button id="restartCcproxyBtn" class="action-btn">重启 ccproxy</button>
+                <button id="stopCcproxyBtn" class="action-btn danger-soft">停止 ccproxy</button>
+                <button class="action-btn" data-open-target="docs">打开 API 文档</button>
+                <button class="action-btn" data-open-target="dashboard">打开 Dashboard</button>
+                <button class="action-btn" data-open-target="ccproxy">打开 ccproxy 目录</button>
+                <button class="action-btn" data-open-target="accounts">打开账号文件夹</button>
+                <button class="action-btn" data-open-target="codexAuthFolder">打开默认登录态目录</button>
+            </div>
+        </section>
+
+        <section class="two-column">
+            <article class="panel">
+                <div class="panel-heading">
+                    <div>
+                        <p class="eyebrow">当前账号</p>
+                        <h2>正在使用的 Codex 登录态</h2>
+                    </div>
+                    <button id="saveActiveBtn" class="small-btn">保存为账号文件</button>
+                </div>
+                <div id="activeCredential" class="credential-card empty">
+                    正在读取 `C:\Users\Administrator\.codex\auth.json`
+                </div>
+                <label class="input-line">
+                    <span>保存名称</span>
+                    <input id="saveActiveLabel" placeholder="例如 account-a / 工作号 / 备用号">
+                </label>
+            </article>
+
+            <article class="panel">
+                <div class="panel-heading">
+                    <div>
+                        <p class="eyebrow">新增账号</p>
+                        <h2>网页登录并导出</h2>
+                    </div>
+                </div>
+                <p class="hint">会打开一个 PowerShell 登录窗口。你用目标 ChatGPT 账号完成网页登录，它会把凭据保存到账号文件夹。</p>
+                <label class="input-line">
+                    <span>账号文件名</span>
+                    <input id="loginLabelInput" placeholder="例如 account-b">
+                </label>
+                <button id="launchLoginBtn" class="action-btn primary full">打开登录窗口</button>
+            </article>
+        </section>
+
+        <section class="panel">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">账号池</p>
+                    <h2>已保存账号</h2>
+                </div>
+                <div class="panel-actions">
+                    <p id="accountsPath">-</p>
+                    <div class="mini-actions">
+                        <button id="testAllAccountsBtn" class="small-btn">批量测试可用性</button>
+                        <button id="switchLatestBtn" class="small-btn">切换到最新账号并重启</button>
+                    </div>
+                </div>
+            </div>
+            <p id="accountsSummary" class="hint">账号列表加载中...</p>
+            <div id="effectiveAccountBanner" class="effective-banner muted">当前生效账号：加载中...</div>
+            <div id="accountsList" class="accounts-list"></div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-heading">
+                <div>
+                    <p class="eyebrow">完整链路测试</p>
+                    <h2>手动 ping 一次模型</h2>
+                </div>
+                <button id="testVcpBtn" class="small-btn">发送 ping</button>
+            </div>
+            <p class="hint">这个测试会真正请求一次当前模型，可能消耗极少量额度；所以不会自动执行。</p>
+            <pre id="testResult" class="result-box">等待手动测试。</pre>
+        </section>
+    </main>
+
+    <div id="toast" class="toast"></div>
+    <script src="gateway.js"></script>
+</body>
+</html>

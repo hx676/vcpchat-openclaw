@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Silver Companion</title>
+    <link rel="stylesheet" href="../../../../styles/themes.css">
+    <link rel="stylesheet" href="SilverCompanion.css">
+</head>
+<body>
+    <div id="titlebar">
+        <div class="titlebar-meta">
+            <div class="title-badge">SilverCompanion</div>
+            <div>
+                <div class="title-main">银发 AI 生活伴侣</div>
+                <div class="title-sub">健康检测 + 情感陪伴老人端 MVP</div>
+            </div>
+        </div>
+        <div class="titlebar-actions">
+            <button id="minimizeBtn" class="window-btn" type="button" aria-label="最小化">—</button>
+            <button id="maximizeBtn" class="window-btn" type="button" aria-label="最大化">□</button>
+            <button id="closeBtn" class="window-btn danger" type="button" aria-label="关闭">×</button>
+        </div>
+    </div>
+
+    <main class="app-shell">
+        <section class="hero-banner">
+            <div class="hero-main">
+                <div class="hero-topline">
+                    <span class="hero-risk" id="heroRisk">正在读取状态</span>
+                    <span class="hero-updated" id="updatedAtLabel">--</span>
+                    <button id="refreshDataBtn" class="ghost-btn" type="button">刷新数据</button>
+                </div>
+                <h1 id="heroTitle">银发 AI 生活伴侣</h1>
+                <p id="heroSubtitle">准备读取老人端画像、今日状态和关系趋势。</p>
+                <div id="heroMotto" class="hero-motto">--</div>
+            </div>
+            <div class="hero-side">
+                <div class="avatar-disc" id="avatarDisc">SC</div>
+                <div class="hero-identity">
+                    <div id="profileName" class="profile-name">--</div>
+                    <div id="profileMeta" class="profile-meta">--</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="workspace-shell">
+            <aside class="section-rail">
+                <button class="section-tab active" type="button" data-section="home">
+                    <span class="section-tab-title">首页</span>
+                    <span class="section-tab-desc">总体状态与今日摘要</span>
+                </button>
+                <button class="section-tab" type="button" data-section="profile">
+                    <span class="section-tab-title">基本信息</span>
+                    <span class="section-tab-desc">画像、习惯与长期记忆</span>
+                </button>
+                <button class="section-tab" type="button" data-section="dashboard">
+                    <span class="section-tab-title">看板</span>
+                    <span class="section-tab-desc">陪伴交互与模拟台</span>
+                </button>
+                <button class="section-tab" type="button" data-section="mood">
+                    <span class="section-tab-title">心情</span>
+                    <span class="section-tab-desc">情绪翻译与变化线索</span>
+                </button>
+                <button class="section-tab" type="button" data-section="health">
+                    <span class="section-tab-title">健康</span>
+                    <span class="section-tab-desc">指标趋势与风险提醒</span>
+                </button>
+                <button class="section-tab" type="button" data-section="safeCircle">
+                    <span class="section-tab-title">平安圈</span>
+                    <span class="section-tab-desc">熟人联系与报平安</span>
+                </button>
+            </aside>
+
+            <section class="content-stage">
+                <section class="content-panel active" id="section-home">
+                    <div class="content-head">
+                        <h2>首页</h2>
+                        <p>把今天最重要的状态、提醒和家属可行动信息集中到一页。</p>
+                    </div>
+                    <div class="home-grid">
+                        <article class="panel-surface">
+                            <div class="panel-headline">
+                                <h3>今日状态总览</h3>
+                            </div>
+                            <div id="overviewCards" class="metric-grid"></div>
+                        </article>
+                        <article class="panel-surface">
+                            <div class="panel-headline">
+                                <h3>家属摘要</h3>
+                            </div>
+                            <div id="familyHeadline" class="family-headline">--</div>
+                            <ul id="familyActions" class="stack-list"></ul>
+                        </article>
+                        <article class="panel-surface">
+                            <div class="panel-headline">
+                                <h3>关键提醒</h3>
+                            </div>
+                            <ul id="homeAlerts" class="stack-list"></ul>
+                        </article>
+                        <article class="panel-surface">
+                            <div class="panel-headline">
+                                <h3>今日情绪速览</h3>
+                            </div>
+                            <div id="homeMoodSummary" class="summary-copy">--</div>
+                        </article>
+                        <article class="panel-surface">
+                            <div class="panel-headline">
+                                <h3>平安圈速览</h3>
+                            </div>
+                            <div id="homeCircleSummary" class="summary-copy">--</div>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="content-panel" id="section-profile">
+                    <div class="content-head">
+                        <h2>基本信息</h2>
+                        <p>展示老人画像、熟悉偏好、家人关系和记忆概况。</p>
+                    </div>
+                    <div class="profile-grid">
+                        <article class="panel-surface panel-span-2">
+                            <div class="panel-headline">
+                                <h3>画像名片</h3>
+                            </div>
+                            <div id="basicInfoCard" class="identity-card">--</div>
+                        </article>
+                        <article class="panel-surface">
+                            <div class="panel-headline">
+                                <h3>标签</h3>
+                            </div>
+                            <div id="profileTags" class="tag-cloud"></div>
+                        </article>
+                        <article class="panel-surface">
+                            <div class="panel-headline">
+                                <h3>生活偏好</h3>
+                            </div>
+                            <ul id="profilePreferences" class="stack-list"></ul>
+                        </article>
+                        <article class="panel-surface">
+                            <div class="panel-headline">
+                                <h3>家庭关系</h3>
+                            </div>
+                            <ul id="profileFamily" class="stack-list"></ul>
+                        </article>
+                        <article class="panel-surface panel-span-2">
+                            <div class="panel-headline">
+                                <h3>记忆画像</h3>
+                            </div>
+                            <div id="profileMemory" class="memory-grid"></div>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="content-panel" id="section-dashboard">
+                    <div class="content-head">
+                        <h2>看板</h2>
+                        <p>把语音陪伴、家属事件和模拟注入放在一个工作台里。</p>
+                    </div>
+                    <div class="dashboard-tab-grid">
+                        <article class="panel-surface panel-span-2">
+                            <div class="panel-headline">
+                                <h3>语音陪伴</h3>
+                                <span id="voiceStatus" class="inline-tag">文本待机</span>
+                            </div>
+                            <div class="companion-layout">
+                                <div class="conversation-wrap">
+                                    <div id="conversationList" class="conversation-list"></div>
+                                </div>
+                                <div class="companion-side">
+                                    <div class="transcript-box">
+                                        <div class="minor-title">实时转写</div>
+                                        <div id="transcriptText" class="transcript-text">点击“开始语音”后，这里会显示实时转写。</div>
+                                    </div>
+                                    <div class="input-box">
+                                        <label class="minor-title" for="messageInput">文字补充</label>
+                                        <textarea id="messageInput" rows="4" placeholder="可以直接输入一句状态，比如“我今天有点累，但不想让家里担心”。"></textarea>
+                                        <div class="input-actions">
+                                            <button id="startVoiceBtn" class="primary-btn" type="button">开始语音</button>
+                                            <button id="stopVoiceBtn" class="secondary-btn" type="button" disabled>停止并发送</button>
+                                            <button id="sendTextBtn" class="secondary-btn" type="button">发送文字</button>
+                                            <button id="stopAudioBtn" class="ghost-btn" type="button">停止播放</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+                        <article class="panel-surface">
+                            <div class="panel-headline">
+                                <h3>事件看板</h3>
+                                <button id="openOpsGroupBtn" class="ghost-btn" type="button">回到群聊</button>
+                            </div>
+                            <ul id="dashboardEvents" class="stack-list"></ul>
+                        </article>
+                        <article class="panel-surface">
+                            <div class="panel-headline">
+                                <h3>模拟台</h3>
+                                <button id="resetScenarioBtn" class="ghost-btn" type="button">恢复基线</button>
+                            </div>
+                            <div id="simulationButtons" class="simulation-grid"></div>
+                            <div id="simStatus" class="sim-status">可以快速注入健康、情绪和平安圈波动，观察页面联动。</div>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="content-panel" id="section-mood">
+                    <div class="content-head">
+                        <h2>心情</h2>
+                        <p>重点看表达欲、语言能量、回避倾向和熟人互动变化。</p>
+                    </div>
+                    <div class="mood-grid">
+                        <article class="panel-surface">
+                            <div class="panel-headline">
+                                <h3>情绪翻译</h3>
+                                <span id="emotionTrendLabel" class="inline-tag">--</span>
+                            </div>
+                            <div id="emotionSignals" class="signal-grid"></div>
+                        </article>
+                        <article class="panel-surface">
+                            <div class="panel-headline">
+                                <h3>趋势解读</h3>
+                            </div>
+                            <ul id="emotionNarrative" class="stack-list"></ul>
+                        </article>
+                        <article class="panel-surface panel-span-2">
+                            <div class="panel-headline">
+                                <h3>陪伴建议</h3>
+                            </div>
+                            <div id="moodInsight" class="summary-copy">--</div>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="content-panel" id="section-health">
+                    <div class="content-head">
+                        <h2>健康</h2>
+                        <p>把基础体征、趋势线和设备状态集中查看。</p>
+                    </div>
+                    <div class="health-grid">
+                        <article class="panel-surface panel-span-2">
+                            <div class="panel-headline">
+                                <h3>健康看板</h3>
+                                <div class="range-switch">
+                                    <button class="range-btn active" data-range="24h" type="button">近24小时</button>
+                                    <button class="range-btn" data-range="7d" type="button">近7天</button>
+                                </div>
+                            </div>
+                            <div id="healthCharts" class="chart-grid"></div>
+                        </article>
+                        <article class="panel-surface">
+                            <div class="panel-headline">
+                                <h3>设备状态</h3>
+                            </div>
+                            <ul id="deviceStatusList" class="stack-list"></ul>
+                        </article>
+                        <article class="panel-surface panel-span-3">
+                            <div class="panel-headline">
+                                <h3>风险提醒</h3>
+                            </div>
+                            <ul id="healthAlerts" class="stack-list"></ul>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="content-panel" id="section-safeCircle">
+                    <div class="content-head">
+                        <h2>平安圈</h2>
+                        <p>聚焦报平安、熟人联系频率和弱异常升级线索。</p>
+                    </div>
+                    <div class="safe-grid">
+                        <article class="panel-surface">
+                            <div class="panel-headline">
+                                <h3>状态摘要</h3>
+                                <span id="checkInLabel" class="inline-tag">--</span>
+                            </div>
+                            <div id="safeCircleSummary" class="summary-copy">--</div>
+                        </article>
+                        <article class="panel-surface panel-span-2">
+                            <div class="panel-headline">
+                                <h3>熟人关系列表</h3>
+                            </div>
+                            <div id="contactList" class="contact-list"></div>
+                        </article>
+                        <article class="panel-surface panel-span-3">
+                            <div class="panel-headline">
+                                <h3>弱异常提醒</h3>
+                            </div>
+                            <ul id="safeWarnings" class="stack-list"></ul>
+                        </article>
+                    </div>
+                </section>
+            </section>
+        </section>
+    </main>
+
+    <script src="modules/utils.js"></script>
+    <script src="modules/navigation.js"></script>
+    <script src="modules/headerSection.js"></script>
+    <script src="modules/homeSection.js"></script>
+    <script src="modules/profileSection.js"></script>
+    <script src="modules/dashboardSection.js"></script>
+    <script src="modules/moodSection.js"></script>
+    <script src="modules/healthSection.js"></script>
+    <script src="modules/safeCircleSection.js"></script>
+    <script src="modules/audioPlayer.js"></script>
+    <script src="SilverCompanion.js"></script>
+</body>
+</html>

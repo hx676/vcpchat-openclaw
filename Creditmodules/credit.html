@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src * data: file:; connect-src *;">
+    <title>授信工作台</title>
+    <link rel="stylesheet" href="../styles/themes.css">
+    <link rel="stylesheet" href="credit.css">
+    <script src="../vendor/marked.min.js"></script>
+</head>
+<body>
+    <nav class="topbar">
+        <div class="brand">
+            <span class="brand-mark">信</span>
+            <div>
+                <strong>授信工作台</strong>
+                <small>企业贷前调查 MVP</small>
+            </div>
+        </div>
+        <div class="toolbar">
+            <button id="newCaseBtn" class="primary-btn">新建案件</button>
+            <button id="importMaterialsBtn">上传并解析材料</button>
+            <button id="runRulesBtn">运行规则</button>
+            <button id="generateReportBtn">生成报告</button>
+            <button id="exportMarkdownBtn">导出 Markdown</button>
+            <button id="exportWordBtn">导出 Word</button>
+            <button id="openDataFolderBtn">数据目录</button>
+            <span class="divider"></span>
+            <button id="minimizeBtn" class="window-btn">一</button>
+            <button id="maximizeBtn" class="window-btn">□</button>
+            <button id="closeBtn" class="window-btn danger">×</button>
+        </div>
+    </nav>
+
+    <div class="shell">
+        <aside class="sidebar">
+            <div class="sidebar-head">
+                <span>案件列表</span>
+                <button id="refreshCasesBtn">刷新</button>
+            </div>
+            <input id="caseSearch" class="search" placeholder="搜索企业/金额/状态">
+            <div id="caseList" class="case-list"></div>
+            <div id="dataDir" class="data-dir"></div>
+        </aside>
+
+        <main class="workspace">
+            <section id="emptyState" class="empty-state">
+                <h1>把贷前调查变成一个可复核的流水线</h1>
+                <p>新建企业授信案件后，上传营业执照、财报、流水、合同、抵押物等材料。系统会抽取字段、运行规则，并生成可编辑报告初稿。</p>
+                <button id="emptyNewCaseBtn" class="primary-btn">创建第一个授信案件</button>
+            </section>
+
+            <section id="caseWorkspace" class="case-workspace hidden">
+                <div class="hero-card">
+                    <div>
+                        <label>案件名称</label>
+                        <input id="caseNameInput" class="hero-input" placeholder="企业授信案件">
+                    </div>
+                    <div>
+                        <label>状态</label>
+                        <select id="caseStatusInput" class="hero-input">
+                            <option value="draft">草稿</option>
+                            <option value="investigating">调查中</option>
+                            <option value="reviewing">复核中</option>
+                            <option value="finalized">已定稿</option>
+                        </select>
+                    </div>
+                    <div class="stats">
+                        <div><strong id="materialCount">0</strong><span>材料</span></div>
+                        <div><strong id="fieldConfirmedCount">0</strong><span>已确认</span></div>
+                        <div><strong id="fieldPendingCount">0</strong><span>待确认</span></div>
+                        <div><strong id="fieldConflictCount">0</strong><span>冲突</span></div>
+                        <div><strong id="ruleHighCount">0</strong><span>高风险</span></div>
+                        <div><strong id="reportCount">0</strong><span>报告版本</span></div>
+                    </div>
+                </div>
+
+                <section class="panel recognition-panel">
+                    <div class="panel-title">
+                        <h2>案件首页：材料识别进度</h2>
+                        <button id="quickUploadBtn" class="primary-btn">上传材料开始识别</button>
+                    </div>
+                    <div class="progress-grid">
+                        <div>
+                            <span>材料解析</span>
+                            <strong id="materialProgressSummary">0 / 0</strong>
+                            <p id="materialCategorySummary">营业执照、财报、流水、合同、抵押物、查询截图都先进入材料识别台。</p>
+                        </div>
+                        <div>
+                            <span>字段核验</span>
+                            <strong id="fieldProgressSummary">0 已确认</strong>
+                            <p>OCR/文本解析结果不会直接进报告，必须在字段核验台确认。</p>
+                        </div>
+                        <div>
+                            <span>待补充清单</span>
+                            <strong id="missingFieldCount">0</strong>
+                            <p id="missingFieldList">暂无待补充字段。</p>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="grid two">
+                    <section class="panel">
+                        <div class="panel-title">
+                            <h2>字段核验台</h2>
+                            <div>
+                                <button id="confirmSelectedFieldBtn">确认选中字段</button>
+                                <button id="markManualFieldBtn">标记人工补录</button>
+                            </div>
+                        </div>
+                        <div id="fieldBoard" class="field-board"></div>
+                    </section>
+
+                    <section class="panel evidence-panel">
+                        <div class="panel-title">
+                            <h2>证据面板</h2>
+                            <span id="evidenceStatus" class="chip">未选择字段</span>
+                        </div>
+                        <div id="evidencePanel" class="evidence-content">
+                            <div class="muted-box">点击字段卡片后，可查看来源材料、OCR 文本片段、置信度和冲突值。</div>
+                        </div>
+                    </section>
+                </div>
+
+                <div class="grid two">
+                    <section class="panel">
+                        <div class="panel-title">
+                            <h2>人工校正区（选择为主，可手写补充）</h2>
+                            <button id="saveCaseBtn">保存案件</button>
+                        </div>
+                        <div class="form-grid">
+                            <label>企业名称<input data-field="companyName"></label>
+                            <label>统一社会信用代码<input data-field="unifiedSocialCreditCode"></label>
+                            <label>法定代表人<input data-field="legalRepresentative"></label>
+                            <label>注册地址<input data-field="registeredAddress"></label>
+                            <label>成立日期<input data-field="establishedDate"></label>
+                            <label>注册资本<input data-field="registeredCapital"></label>
+                            <label>所属行业<input data-field="industry"></label>
+                            <label>申请金额<input data-field="loanAmount" placeholder="例如 500 万元"></label>
+                            <label>授信期限<input data-field="loanTerm" placeholder="例如 12 个月"></label>
+                            <label>资产总额<input data-field="totalAssets"></label>
+                            <label>负债总额<input data-field="totalLiabilities"></label>
+                            <label>营业收入<input data-field="revenue"></label>
+                            <label>净利润<input data-field="netProfit"></label>
+                            <label class="wide">经营范围<textarea data-field="businessScope"></textarea></label>
+                            <label class="wide">贷款用途<textarea data-field="loanPurpose"></textarea></label>
+                            <label class="wide">担保方式<textarea data-field="guaranteeMethod"></textarea></label>
+                            <label class="wide">财务摘要<textarea data-field="financialSummary"></textarea></label>
+                            <label class="wide">流水摘要<textarea data-field="cashflowSummary"></textarea></label>
+                            <label class="wide">合同/发票摘要<textarea data-field="contractsSummary"></textarea></label>
+                            <label class="wide">担保/抵押摘要<textarea data-field="collateralSummary"></textarea></label>
+                            <label class="wide">本次授信方案<textarea data-field="manualCreditPlan"></textarea></label>
+                            <label class="wide">最终调查意见<textarea data-field="manualInvestigationOpinion"></textarea></label>
+                            <label class="wide">风险缓释措施<textarea data-field="manualRiskMitigation"></textarea></label>
+                        </div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-title">
+                            <h2>外部核验材料（状态选择 + 说明补充）</h2>
+                            <div>
+                                <button id="importExternalJsonBtn">导入 JSON</button>
+                                <button id="saveExternalBtn">保存外部数据</button>
+                            </div>
+                        </div>
+                        <div class="form-grid">
+                            <label>工商状态<input data-external="businessStatus" placeholder="正常/存续/异常"></label>
+                            <label>司法风险<input data-external="judicialRisk" placeholder="无/诉讼摘要"></label>
+                            <label>失信被执行<input data-external="dishonestDebtor" placeholder="无/记录摘要"></label>
+                            <label>被执行信息<input data-external="enforcementInfo" placeholder="无/执行信息"></label>
+                            <label>行政处罚<input data-external="administrativePenalty" placeholder="无/处罚摘要"></label>
+                            <label>征信摘要<input data-external="creditSummary" placeholder="人工导入摘要"></label>
+                            <label class="wide">关联企业<textarea data-external="relatedCompanies"></textarea></label>
+                            <label class="wide">舆情备注<textarea data-external="publicOpinion"></textarea></label>
+                            <label class="wide">补充说明<textarea data-external="notes"></textarea></label>
+                        </div>
+                    </section>
+                </div>
+
+                <div class="grid two">
+                    <section class="panel">
+                        <div class="panel-title">
+                            <h2>材料识别台</h2>
+                            <button id="reextractMaterialBtn">重跑选中材料</button>
+                        </div>
+                        <div id="materialList" class="material-list"></div>
+                    </section>
+
+                    <section class="panel">
+                        <div class="panel-title">
+                            <h2>抽取结果校对</h2>
+                            <button id="saveExtractBtn">保存校对</button>
+                        </div>
+                        <div id="extractEmpty" class="muted-box">选择左侧材料后，可查看抽取文本、结构化字段和解析警告。</div>
+                        <div id="extractEditor" class="extract-editor hidden">
+                            <label>抽取文本<textarea id="extractTextEditor"></textarea></label>
+                            <label>结构化字段 JSON<textarea id="extractStructuredEditor"></textarea></label>
+                            <div id="extractWarnings" class="warning-list"></div>
+                        </div>
+                    </section>
+                </div>
+
+                <div class="grid two">
+                    <section class="panel">
+                        <div class="panel-title">
+                            <h2>规则命中</h2>
+                            <span id="ruleStats" class="chip">未运行</span>
+                        </div>
+                        <div id="ruleList" class="rule-list"></div>
+                    </section>
+
+                    <section class="panel report-panel">
+                        <div class="panel-title">
+                            <h2>报告编辑器</h2>
+                            <div>
+                                <select id="reportSelect"></select>
+                                <button id="saveReportBtn">保存报告</button>
+                            </div>
+                        </div>
+                        <div id="reportWarning" class="report-warning hidden"></div>
+                        <textarea id="reportEditor" class="report-editor" placeholder="生成报告后可在这里编辑。"></textarea>
+                        <div class="preview-title">预览</div>
+                        <div id="reportPreview" class="report-preview"></div>
+                    </section>
+                </div>
+            </section>
+        </main>
+
+        <aside class="assistant-sidebar">
+            <section class="panel assistant-panel">
+                <div class="panel-title">
+                    <div>
+                        <h2>AI 材料助手</h2>
+                        <p>像 GPT 一样把图片、文件或 OCR 文本发到这里，我会识别字段并放进核验台。</p>
+                    </div>
+                </div>
+                <div id="assistantChatLog" class="assistant-chat-log"></div>
+                <div class="assistant-actions">
+                    <button id="assistantUploadBtn" class="primary-btn">上传图片/文件</button>
+                </div>
+                <div class="assistant-composer">
+                    <textarea id="assistantInput" placeholder="粘贴材料文字，或问我：这张图应该归到哪类材料？按 Ctrl+Enter 发送。"></textarea>
+                    <button id="assistantSendBtn">发送</button>
+                </div>
+                <div class="assistant-note">识别结果不会直接进报告，确认后才会同步到主字段。</div>
+            </section>
+        </aside>
+    </div>
+
+    <div id="newCaseModal" class="modal hidden">
+        <form id="newCaseForm" class="modal-card">
+            <h2>新建企业授信案件</h2>
+            <label>案件名称<input id="newCaseName" placeholder="例如：某某公司流动资金贷款"></label>
+            <label>企业名称<input id="newCompanyName" placeholder="可稍后由营业执照自动补全"></label>
+            <label>申请金额<input id="newLoanAmount" placeholder="例如 500 万元"></label>
+            <label>贷款用途<textarea id="newLoanPurpose" placeholder="例如采购原材料、补充流动资金"></textarea></label>
+            <div class="modal-actions">
+                <button type="button" id="cancelNewCaseBtn">取消</button>
+                <button type="submit" class="primary-btn">创建</button>
+            </div>
+        </form>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+    <script src="credit.js"></script>
+</body>
+</html>

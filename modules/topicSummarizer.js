@@ -2,6 +2,30 @@
 
 var topicSummarizerApi = window.chatAPI || window.electronAPI;
 
+function stripCodexModelPrefix(model) {
+    const value = String(model || '').trim();
+    if (!value.toLowerCase().startsWith('openai-codex/')) return value;
+    return value.slice('openai-codex/'.length).trim();
+}
+
+function shouldRetryWithStrippedCodexModel(status, rawBody, model) {
+    if (status !== 400) return false;
+    const current = String(model || '').trim();
+    if (!current.toLowerCase().startsWith('openai-codex/')) return false;
+    return String(rawBody || '').toLowerCase().includes('not supported when using codex with a chatgpt account');
+}
+
+const OLLAMA_MODEL_PREFIX = 'ollama/';
+
+function isOllamaModel(model) {
+    return String(model || '').trim().toLowerCase().startsWith(OLLAMA_MODEL_PREFIX);
+}
+
+function stripOllamaModelPrefix(model) {
+    const value = String(model || '').trim();
+    return isOllamaModel(value) ? value.slice(OLLAMA_MODEL_PREFIX.length).trim() : value;
+}
+
 /**
  * 根据消息列表尝试用AI总结一个话题标题。
  * @param {Array<Object>} messages - 聊天消息对象数组。
@@ -17,7 +41,9 @@ async function summarizeTopicFromMessages(messages, agentName) {
     let settings;
     try {
         settings = await topicSummarizerApi.loadSettings();
-        if (!settings || !settings.vcpServerUrl || !settings.vcpApiKey) {
+        const summaryModel = settings?.topicSummaryModel || 'gemini-2.5-flash';
+        const usingOllama = isOllamaModel(summaryModel);
+        if (!settings || (!usingOllama && (!settings.vcpServerUrl || !settings.vcpApiKey))) {
             console.error('[TopicSummarizer] VCP settings are missing or invalid.');
             return null; // Can't proceed without settings
         }
@@ -40,26 +66,59 @@ async function summarizeTopicFromMessages(messages, agentName) {
     // --- AI summarization logic ---
     const summaryPrompt = `[待总结聊天记录: ${recentMessagesContent}]\n请根据以上对话内容，仅返回一个简洁的话题标题。要求：1. 标题长度控制在10个汉字以内。2. 标题本身不能包含任何标点符号、数字编号或任何非标题文字。3. 直接给出标题文字，不要添加任何解释或前缀。`;
     let vcpSummaryResponse = null;
+    let summaryModel = settings.topicSummaryModel || 'gemini-2.5-flash';
+    let requestUrl = settings.vcpServerUrl;
+    let requestHeaders = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${settings.vcpApiKey}`
+    };
+    let requestModel = summaryModel;
+    if (isOllamaModel(summaryModel)) {
+        requestUrl = 'http://127.0.0.1:11434/v1/chat/completions';
+        requestHeaders = { 'Content-Type': 'application/json' };
+        requestModel = stripOllamaModelPrefix(summaryModel);
+    }
     try {
-        const response = await fetch(settings.vcpServerUrl, {
+        let response = await fetch(requestUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${settings.vcpApiKey}`
-            },
+            headers: requestHeaders,
             body: JSON.stringify({
                 messages: [{ role: 'user', content: summaryPrompt }],
-                model: settings.topicSummaryModel || 'gemini-2.5-flash', // Use configured model or fallback
+                model: requestModel, // Use configured model or fallback
                 temperature: 0.3,
                 max_tokens: 30000
             })
         });
 
+        if (!response.ok) {
+            let errorText = await response.text();
+            if (!isOllamaModel(summaryModel) && shouldRetryWithStrippedCodexModel(response.status, errorText, summaryModel)) {
+                const fallbackModel = stripCodexModelPrefix(summaryModel);
+                if (fallbackModel && fallbackModel !== summaryModel) {
+                    summaryModel = fallbackModel;
+                    requestModel = summaryModel;
+                    response = await fetch(requestUrl, {
+                        method: 'POST',
+                        headers: requestHeaders,
+                        body: JSON.stringify({
+                            messages: [{ role: 'user', content: summaryPrompt }],
+                            model: requestModel,
+                            temperature: 0.3,
+                            max_tokens: 30000
+                        })
+                    });
+                    if (!response.ok) {
+                        errorText = await response.text();
+                    }
+                }
+            }
+            if (!response.ok) {
+                console.error('[TopicSummarizer] AI summary request failed:', response.status, errorText);
+            }
+        }
+
         if (response.ok) {
             vcpSummaryResponse = await response.json();
-        } else {
-            const errorText = await response.text();
-            console.error('[TopicSummarizer] AI summary request failed:', response.status, errorText);
         }
     } catch (error) {
         console.error('[TopicSummarizer] Network error during AI summary:', error);

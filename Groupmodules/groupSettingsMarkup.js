@@ -66,6 +66,7 @@ window.GroupSettingsMarkup = (() => {
                                     <option value="sequential">顺序发言</option>
                                     <option value="naturerandom">自然随机</option>
                                     <option value="invite_only">邀请发言</option>
+                                    <option value="silver_companion_managed">老人托管模式</option>
                                 </select>
                             </div>
 

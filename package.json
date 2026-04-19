@@ -7,6 +7,7 @@
     "start": "electron .",
     "start:desktop": "electron . --desktop-only",
     "start:rag-observer": "electron . --rag-observer-only",
+    "doctor": "node tools/vcp-doctor.js",
     "pack": "electron-builder --dir",
     "dist": "electron-builder"
   },
@@ -28,6 +29,7 @@
   },
   "dependencies": {
     "@3d-dice/dice-box": "^1.1.4",
+    "@xterm/headless": "^6.0.0",
     "animejs": "^4.0.2",
     "axios": "^1.10.0",
     "cheerio": "^1.1.2",
@@ -88,8 +90,10 @@
       "image-viewer.html",
       "text-viewer.html",
       "style.css",
+      "styles/**/*",
       "assets/",
       "modules/**/*",
+      "VCPDistributedServer/**/*",
       "vendor/**/*",
       "node_modules/**/*"
     ],

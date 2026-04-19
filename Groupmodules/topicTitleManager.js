@@ -2,6 +2,7 @@
 // 话题标题自动生成管理模块 - 从 groupchat.js 中独立出来，方便后续优化
 
 const fs = require('fs-extra');
+const { resolveModelRequestTarget } = require('../modules/utils/modelRouting');
 
 // 话题总结相关常量
 const MIN_MESSAGES_FOR_SUMMARY = 4;
@@ -70,7 +71,9 @@ function buildSummaryContent(groupHistory, globalVcpSettings) {
  * @returns {Promise<string|null>} AI 生成的原始标题，或 null
  */
 async function generateTitleFromAI(summaryContent, globalVcpSettings) {
-    if (!globalVcpSettings.vcpUrl) {
+    const requestedModel = globalVcpSettings.topicSummaryModel || 'gemini-2.5-flash-preview-05-20';
+    const usingOllama = String(requestedModel || '').toLowerCase().startsWith('ollama/');
+    if (!usingOllama && !globalVcpSettings.vcpUrl) {
         console.error("[TopicTitleManager] VCP URL not configured. Cannot summarize topic.");
         return null;
     }
@@ -83,16 +86,21 @@ async function generateTitleFromAI(summaryContent, globalVcpSettings) {
     const timeoutId = setTimeout(() => controller.abort(), 20000); // 20秒超时（总结用时较短）
 
     let response;
+    const requestTarget = resolveModelRequestTarget({
+        defaultUrl: globalVcpSettings.vcpUrl,
+        enableToolInjection: false,
+        model: requestedModel,
+    });
     try {
-        response = await fetch(globalVcpSettings.vcpUrl, {
+        response = await fetch(requestTarget.finalUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${globalVcpSettings.vcpApiKey}`
+                ...(requestTarget.requiresAuth ? { 'Authorization': `Bearer ${globalVcpSettings.vcpApiKey}` } : {})
             },
             body: JSON.stringify({
                 messages: messagesForAISummary,
-                model: globalVcpSettings.topicSummaryModel || 'gemini-2.5-flash-preview-05-20',
+                model: requestTarget.resolvedModel,
                 temperature: 0.3,
                 max_tokens: 4000,
                 stream: false // 总结通常不需要流式

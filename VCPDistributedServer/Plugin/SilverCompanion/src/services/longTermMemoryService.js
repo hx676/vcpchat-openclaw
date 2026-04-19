@@ -1,0 +1,131 @@
+const path = require('path');
+const { spawn } = require('child_process');
+const { resolveNodeExecutable } = require('../utils/nodeExecutable');
+
+class LongTermMemoryService {
+    constructor({ projectRoot, store }) {
+        this.projectRoot = projectRoot;
+        this.store = store;
+        this.toolboxRoot = path.resolve(projectRoot, '..', 'VCPToolBox');
+        this.dailyNoteScript = path.join(this.toolboxRoot, 'Plugin', 'DailyNote', 'dailynote.js');
+        this.notebookName = '银发陪伴助手';
+        this.maidName = '[银发陪伴助手]银发陪伴助手';
+    }
+
+    buildDiaryContent({ summary, tags, source, priority, time }) {
+        const stamp = time || new Date().toTimeString().slice(0, 5);
+        const normalizedTags = Array.isArray(tags) ? tags.filter(Boolean) : [];
+        const finalTags = normalizedTags.length
+            ? normalizedTags
+            : ['银发陪伴', '长期记忆'];
+
+        return {
+            Content: `[${stamp}] ${summary}\nTag: ${finalTags.join(', ')}`,
+            Tag: finalTags.join(', '),
+            meta: {
+                source: source || 'silver_companion',
+                priority: priority || 'medium',
+            },
+        };
+    }
+
+    executeDailyNoteCreate(payload) {
+        return new Promise((resolve, reject) => {
+            const child = spawn(resolveNodeExecutable(), [this.dailyNoteScript], {
+                cwd: path.dirname(this.dailyNoteScript),
+                env: {
+                    ...process.env,
+                    PROJECT_BASE_PATH: this.toolboxRoot,
+                    PYTHONIOENCODING: 'utf-8',
+                },
+                windowsHide: true,
+            });
+
+            let stdout = '';
+            let stderr = '';
+
+            child.stdout.setEncoding('utf8');
+            child.stderr.setEncoding('utf8');
+            child.stdout.on('data', (chunk) => {
+                stdout += chunk;
+            });
+            child.stderr.on('data', (chunk) => {
+                stderr += chunk;
+            });
+            child.on('error', (error) => {
+                reject(error);
+            });
+            child.stdin.on('error', (error) => {
+                reject(error);
+            });
+            child.on('close', (code) => {
+                if (code !== 0) {
+                    reject(new Error(stderr.trim() || stdout.trim() || `DailyNote exited with code ${code}`));
+                    return;
+                }
+                try {
+                    resolve(JSON.parse(stdout.trim()));
+                } catch (error) {
+                    reject(new Error(`Invalid DailyNote response: ${stdout.trim()}`));
+                }
+            });
+
+            child.stdin.end(JSON.stringify(payload), 'utf8');
+        });
+    }
+
+    async writeCompanionMemory({ summary, tags, priority, source, date, time }) {
+        const trimmedSummary = String(summary || '').trim();
+        if (!trimmedSummary) {
+            return { success: false, skipped: true, reason: 'empty_summary' };
+        }
+
+        const currentMemory = await this.store.readFile('memory').catch(() => null);
+        if (currentMemory && currentMemory.longTermLastWriteSummary === trimmedSummary) {
+            return {
+                success: false,
+                skipped: true,
+                reason: 'duplicate_summary',
+                notebook: this.notebookName,
+            };
+        }
+
+        const today = date || new Date().toISOString().slice(0, 10);
+        const diary = this.buildDiaryContent({
+            summary: trimmedSummary,
+            tags,
+            source,
+            priority,
+            time,
+        });
+
+        const result = await this.executeDailyNoteCreate({
+            command: 'create',
+            maid: this.maidName,
+            Date: today,
+            Content: diary.Content,
+            Tag: diary.Tag,
+        });
+
+        const nowIso = new Date().toISOString();
+        await this.store.updateFile('memory', (memory) => ({
+            ...memory,
+            updatedAt: nowIso,
+            longTermLastWriteAt: nowIso,
+            longTermLastWriteSummary: trimmedSummary,
+            longTermLastWriteSource: source || 'silver_companion',
+            longTermLastWritePriority: priority || 'medium',
+            longTermLastWriteTags: Array.isArray(tags) ? tags : [],
+            longTermNotebook: this.notebookName,
+        }));
+
+        return {
+            success: true,
+            notebook: this.notebookName,
+            writeResult: result,
+            summary: trimmedSummary,
+        };
+    }
+}
+
+module.exports = LongTermMemoryService;

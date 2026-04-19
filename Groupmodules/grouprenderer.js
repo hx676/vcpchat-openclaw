@@ -26,6 +26,7 @@ window.GroupRenderer = (() => {
     let groupUseUnifiedModel, groupUnifiedModelContainer, groupUnifiedModelInput, openGroupModelSelectBtn;
     let deleteGroupBtn;
     let createNewGroupBtn; // This button is in main.html, renderer.js might attach its listener
+    let createSilverCompanionGroupBtn;
 
     // State for group settings
     let availableAgentsForGroup = []; // To populate member selection
@@ -218,7 +219,8 @@ window.GroupRenderer = (() => {
         const modeLabels = {
             sequential: '顺序发言',
             naturerandom: '自然随机',
-            invite_only: '邀请发言'
+            invite_only: '邀请发言',
+            silver_companion_managed: '老人托管'
         };
         const tagModeLabels = {
             strict: '严格模式',
@@ -336,6 +338,11 @@ window.GroupRenderer = (() => {
             console.warn('[GroupRenderer] createNewGroupBtn not found.');
         }
 
+        createSilverCompanionGroupBtn = document.getElementById('createSilverCompanionGroupBtn');
+        if (createSilverCompanionGroupBtn) {
+            createSilverCompanionGroupBtn.addEventListener('click', handleCreateSilverCompanionGroup);
+        }
+
         // Listeners for group settings form (will be attached when form is displayed)
         // This is handled in displayGroupSettingsPage
     }
@@ -343,12 +350,14 @@ window.GroupRenderer = (() => {
     async function handleCreateNewGroup() {
         uiHelper.openModal('createGroupModal');
         const form = document.getElementById('createGroupForm');
-        const nameInput = document.getElementById('newGroupNameInput');
-        nameInput.value = `新群组_${Date.now()}`; // Pre-fill with a default name
 
         // Remove previous event listener to avoid multiple submissions
         const newForm = form.cloneNode(true);
         form.parentNode.replaceChild(newForm, form);
+        const newNameInput = document.getElementById('newGroupNameInput');
+        if (newNameInput) {
+            newNameInput.value = `新群组_${Date.now()}`;
+        }
 
         newForm.addEventListener('submit', async (event) => {
             event.preventDefault();
@@ -370,6 +379,45 @@ window.GroupRenderer = (() => {
                     console.error('创建群组时出错:', error);
                     uiHelper.showToastNotification(`创建群组时发生错误: ${error.message}`, 'error');
                 }
+            }
+        });
+    }
+
+    async function handleCreateSilverCompanionGroup() {
+        uiHelper.openModal('createSilverCompanionGroupModal');
+        const form = document.getElementById('createSilverCompanionGroupForm');
+
+        const newForm = form.cloneNode(true);
+        form.parentNode.replaceChild(newForm, form);
+        const newNameInput = document.getElementById('silverCompanionGroupNameInput');
+        if (newNameInput) {
+            newNameInput.value = `新老人_${Date.now()}`;
+        }
+
+        newForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const payload = {
+                groupName: document.getElementById('silverCompanionGroupNameInput').value.trim(),
+            };
+
+            if (!payload.groupName) {
+                uiHelper.showToastNotification('老人群名称不能为空', 'warning');
+                return;
+            }
+
+            uiHelper.closeModal('createSilverCompanionGroupModal');
+            try {
+                const result = await electronAPI.createSilverCompanionGroup(payload);
+                if (result.success && result.agentGroup) {
+                    await mainRendererFunctions.loadItems();
+                    mainRendererFunctions.selectItem(result.agentGroup.id, 'group', result.agentGroup.name, result.agentGroup.avatarUrl, result.agentGroup);
+                    mainRendererFunctions.switchToTab('settings');
+                } else {
+                    uiHelper.showToastNotification(`创建老人群失败: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('创建老人群时出错:', error);
+                uiHelper.showToastNotification(`创建老人群时发生错误: ${error.message}`, 'error');
             }
         });
     }
@@ -539,8 +587,10 @@ window.GroupRenderer = (() => {
         groupAvatarInput.value = ''; // Clear file input
 
         groupChatModeSelect.value = groupConfig.mode || 'sequential';
+        groupChatModeSelect.disabled = groupConfig.silverCompanionManaged === true;
         if (tagMatchModeSelect) {
             tagMatchModeSelect.value = groupConfig.tagMatchMode || 'strict';
+            tagMatchModeSelect.disabled = groupConfig.silverCompanionManaged === true;
         }
         groupPromptTextarea.value = groupConfig.groupPrompt || '';
         invitePromptTextarea.value = groupConfig.invitePrompt || '现在轮到你{{VCPChatAgentName}}发言了。';
@@ -628,11 +678,17 @@ window.GroupRenderer = (() => {
         groupSettingsForm.addEventListener('submit', handleSaveGroupSettings);
         groupSettingsForm._eventListenerAttached = true;
 
+        const formActions = groupSettingsForm.querySelector('.form-actions');
+        if (formActions) {
+            formActions.classList.toggle('always-show-delete', groupConfig.silverCompanionManaged === true);
+        }
+
 
         if (deleteGroupBtn?._eventListenerAttached) {
             deleteGroupBtn.removeEventListener('click', handleDeleteCurrentGroup);
         }
         if (deleteGroupBtn) {
+            deleteGroupBtn.textContent = groupConfig.silverCompanionManaged === true ? '删除老人群' : '删除此群组';
             deleteGroupBtn.addEventListener('click', handleDeleteCurrentGroup);
             deleteGroupBtn._eventListenerAttached = true;
         }
@@ -669,6 +725,18 @@ window.GroupRenderer = (() => {
         }
         groupMembersListDiv.innerHTML = '加载Agent列表中...';
         memberTagsInputsDiv.innerHTML = ''; // Clear old tag inputs
+
+        if (groupConfig && groupConfig.silverCompanionManaged === true) {
+            availableAgentsForGroup = [];
+            groupMembersListDiv.innerHTML = `
+                <div class="summary-copy">
+                    当前老人群为托管模式，固定成员为：银发分析助手、银发陪伴助手。
+                </div>
+            `;
+            updateGroupSectionSummary('identity');
+            updateGroupSectionSummary('mode');
+            return;
+        }
 
         try {
             const agents = await electronAPI.getAgents();
@@ -765,20 +833,24 @@ window.GroupRenderer = (() => {
         }
 
         const groupId = document.getElementById('editingGroupId').value;
-        const selectedMemberIds = Array.from(groupMembersListDiv.querySelectorAll('input[type="checkbox"]:checked'))
-            .map(cb => cb.value);
 
         // 保留所有成员的 tag 数据（包括当前未勾选的成员），防止踢出后再加回时 tag 丢失
         // 先获取服务端已有的完整 memberTags 作为基础
         let existingMemberTags = {};
+        let existingConfig = null;
         try {
-            const existingConfig = await electronAPI.getAgentGroupConfig(groupId);
+            existingConfig = await electronAPI.getAgentGroupConfig(groupId);
             if (existingConfig && existingConfig.memberTags) {
                 existingMemberTags = { ...existingConfig.memberTags };
             }
         } catch (e) {
             console.warn('[GroupRenderer] 获取现有 memberTags 失败，将仅使用当前表单数据:', e);
         }
+
+        const managedGroup = existingConfig && existingConfig.silverCompanionManaged === true;
+        const selectedMemberIds = managedGroup
+            ? (existingConfig.members || [])
+            : Array.from(groupMembersListDiv.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
 
         // 用当前 DOM 中的值覆盖（当前勾选成员的最新编辑）
         const memberTags = { ...existingMemberTags };
@@ -791,7 +863,7 @@ window.GroupRenderer = (() => {
         const newConfig = {
             name: groupNameInput.value.trim(),
             members: selectedMemberIds,
-            mode: groupChatModeSelect.value,
+            mode: managedGroup ? 'silver_companion_managed' : groupChatModeSelect.value,
             tagMatchMode: tagMatchModeSelect ? tagMatchModeSelect.value : 'strict',
             // 新增：读取统一模型设置
             useUnifiedModel: groupUseUnifiedModel.checked,
@@ -1251,20 +1323,26 @@ window.GroupRenderer = (() => {
             }
         }
 
-        // Message object for UI rendering (uses original user input text 'content')
-        // 'content' variable is from: const content = mainRendererElements.messageInput.value.trim();
+        // Message object for UI rendering (uses original user input text as a plain string).
+        // This must stay a string, otherwise renderFullMessage() may later persist the
+        // in-memory group history back to file with object-shaped user content, which
+        // breaks the next round's group context reconstruction.
         const userMessageForUI = {
             role: 'user',
             name: currentGlobalSettings.userName || '用户',
-            content: {
-                text: content
-            },
+            content,
             timestamp: Date.now(),
             id: `msg_${Date.now()}_user_${Math.random().toString(36).substring(2, 9)}`,
             attachments: uiAttachments
         };
 
         messageRenderer.renderMessage(userMessageForUI); // Render user's own message in UI
+        if (mainRendererFunctions.getCurrentChatHistory && mainRendererFunctions.setCurrentChatHistory) {
+            const currentHistory = mainRendererFunctions.getCurrentChatHistory() || [];
+            if (!currentHistory.some((message) => message.id === userMessageForUI.id)) {
+                mainRendererFunctions.setCurrentChatHistory([...currentHistory, userMessageForUI]);
+            }
+        }
 
         mainRendererElements.messageInput.value = '';
         mainRendererFunctions.clearAttachedFiles();
@@ -1366,6 +1444,11 @@ window.GroupRenderer = (() => {
             return;
         }
         container.innerHTML = ''; // Clear previous buttons
+
+        if (groupConfig && groupConfig.silverCompanionManaged === true) {
+            container.style.display = 'none';
+            return;
+        }
 
         if (!membersConfigs || membersConfigs.length === 0 || !groupConfig || groupConfig.mode !== 'invite_only') {
             container.style.display = 'none';

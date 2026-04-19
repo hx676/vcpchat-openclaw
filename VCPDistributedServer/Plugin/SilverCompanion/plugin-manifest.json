@@ -1,0 +1,45 @@
+{
+  "manifestVersion": "1.0.0",
+  "name": "SilverCompanion",
+  "version": "1.0.0",
+  "displayName": "银发 AI 生活伴侣",
+  "description": "面向银发老人端的健康检测与情感陪伴插件页，提供关系型陪伴、健康趋势查看、情绪翻译、平安圈协同和家属摘要能力。",
+  "author": "Codex",
+  "pluginType": "hybridservice",
+  "entryPoint": {
+    "type": "nodejs",
+    "script": "SilverCompanion.js"
+  },
+  "communication": {
+    "protocol": "direct",
+    "timeout": 120000
+  },
+  "capabilities": {
+    "invocationCommands": [
+      {
+        "commandIdentifier": "OpenSilverCompanionDashboard",
+        "description": "打开银发 AI 生活伴侣插件页。\n参数:\n- command (字符串, 必需): 固定为 OpenSilverCompanionDashboard。\n调用格式:\n<<<[TOOL_REQUEST]>>>\ntool_name:「始」SilverCompanion「末」\ncommand:「始」OpenSilverCompanionDashboard「末」\n<<<[END_TOOL_REQUEST]>>>"
+      },
+      {
+        "commandIdentifier": "GetSilverCompanionSnapshot",
+        "description": "获取当前老人端状态摘要。\n参数:\n- command (字符串, 必需): 固定为 GetSilverCompanionSnapshot。\n- range (字符串, 可选): daily 或 weekly。\n调用格式:\n<<<[TOOL_REQUEST]>>>\ntool_name:「始」SilverCompanion「末」\ncommand:「始」GetSilverCompanionSnapshot「末」\nrange:「始」daily「末」\n<<<[END_TOOL_REQUEST]>>>"
+      },
+      {
+        "commandIdentifier": "GenerateSilverCompanionSummary",
+        "description": "生成家属摘要。\n参数:\n- command (字符串, 必需): 固定为 GenerateSilverCompanionSummary。\n- range (字符串, 可选): daily 或 weekly。\n调用格式:\n<<<[TOOL_REQUEST]>>>\ntool_name:「始」SilverCompanion「末」\ncommand:「始」GenerateSilverCompanionSummary「末」\nrange:「始」weekly「末」\n<<<[END_TOOL_REQUEST]>>>"
+      },
+      {
+        "commandIdentifier": "SimulateSilverCompanionEvent",
+        "description": "注入一个模拟风险事件，用于演示和联调。\n参数:\n- command (字符串, 必需): 固定为 SimulateSilverCompanionEvent。\n- eventType (字符串, 必需): 可选值包括 heart_rate_alert、sleep_drop、interaction_drop、low_mood、battery_low、combined、baseline。\n调用格式:\n<<<[TOOL_REQUEST]>>>\ntool_name:「始」SilverCompanion「末」\ncommand:「始」SimulateSilverCompanionEvent「末」\neventType:「始」combined「末」\n<<<[END_TOOL_REQUEST]>>>"
+      },
+      {
+        "commandIdentifier": "ResetSilverCompanionState",
+        "description": "重置银发 AI 生活伴侣为默认演示状态。\n参数:\n- command (字符串, 必需): 固定为 ResetSilverCompanionState。\n调用格式:\n<<<[TOOL_REQUEST]>>>\ntool_name:「始」SilverCompanion「末」\ncommand:「始」ResetSilverCompanionState「末」\n<<<[END_TOOL_REQUEST]>>>"
+      },
+      {
+        "commandIdentifier": "OpenSilverCompanionOpsGroup",
+        "description": "打开银发伴侣协作群，便于在主聊天窗口中观察镜像记录、邀请分析助手或陪伴助手发言。\n参数:\n- command (字符串, 必需): 固定为 OpenSilverCompanionOpsGroup。\n调用格式:\n<<<[TOOL_REQUEST]>>>\ntool_name:「始」SilverCompanion「末」\ncommand:「始」OpenSilverCompanionOpsGroup「末」\n<<<[END_TOOL_REQUEST]>>>"
+      }
+    ]
+  }
+}

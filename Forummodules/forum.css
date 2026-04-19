@@ -358,6 +358,58 @@ body.light-theme #board-filter:focus {
     gap: 20px;
 }
 
+.forum-state-card {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: min(640px, calc(100vw - 48px));
+    margin: 10vh auto 0;
+    padding: 42px 36px;
+    border-radius: 28px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    animation: cardIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+.forum-state-icon {
+    width: 68px;
+    height: 68px;
+    border-radius: 22px;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(135deg, var(--accent-color), rgba(255, 255, 255, 0.24));
+    color: var(--text-on-accent);
+    font-size: 2.1rem;
+    font-weight: 800;
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.22);
+}
+
+.forum-state-card.is-error .forum-state-icon {
+    background: linear-gradient(135deg, var(--danger-color), rgba(255, 255, 255, 0.18));
+    color: #fff;
+}
+
+.forum-state-card h2 {
+    margin: 4px 0 0;
+    font-size: clamp(1.6rem, 3vw, 2.25rem);
+}
+
+.forum-state-card p {
+    margin: 0;
+    max-width: 520px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+}
+
+.forum-state-action {
+    width: auto;
+    min-width: 150px;
+    padding: 12px 28px;
+    margin-top: 6px;
+}
+
 .post-card {
     border-radius: 20px;
     padding: 20px;

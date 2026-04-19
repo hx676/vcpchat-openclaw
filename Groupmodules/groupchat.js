@@ -6,11 +6,13 @@ const { ipcMain } = require('electron');
 const contextSanitizer = require('../modules/contextSanitizer');
 const fileManager = require('../modules/fileManager');
 const canvasHandlers = require('../modules/ipc/canvasHandlers');
+const { resolveModelRequestTarget } = require('../modules/utils/modelRouting');
 
 // 群聊模式策略模块
 const sequentialMode = require('./modes/sequentialMode');
 const natureRandomMode = require('./modes/natureRandomMode');
 const inviteOnlyMode = require('./modes/inviteOnlyMode');
+const silverCompanionManagedMode = require('./modes/silverCompanionManagedMode');
 
 // 话题标题管理模块
 const topicTitleManager = require('./topicTitleManager');
@@ -19,7 +21,8 @@ const topicTitleManager = require('./topicTitleManager');
 const CHAT_MODES = {
     'sequential': sequentialMode,
     'naturerandom': natureRandomMode,
-    'invite_only': inviteOnlyMode
+    'invite_only': inviteOnlyMode,
+    'silver_companion_managed': silverCompanionManagedMode
 };
 
 const activeRequestControllers = new Map();
@@ -176,7 +179,7 @@ async function createAgentGroup(groupName, initialConfig = {}) {
     }
     try {
         const baseName = groupName.replace(/[^a-zA-Z0-9_-]/g, '_');
-        const groupId = `${baseName}_${Date.now()}`; // 更简单的唯一ID
+        const groupId = initialConfig.id || `${baseName}_${Date.now()}`; // 更简单的唯一ID
         const groupDir = path.join(mainAppPaths.AGENT_GROUPS_DIR, groupId);
 
         if (await fs.pathExists(groupDir)) {
@@ -348,6 +351,16 @@ async function deleteAgentGroup(groupId) {
     try {
         const groupDir = path.join(mainAppPaths.AGENT_GROUPS_DIR, groupId);
         const userDataGroupDir = path.join(mainAppPaths.USER_DATA_DIR, groupId); 
+        const configPath = path.join(groupDir, 'config.json');
+        let groupConfig = null;
+
+        if (await fs.pathExists(configPath)) {
+            try {
+                groupConfig = await fs.readJson(configPath);
+            } catch (_error) {
+                groupConfig = null;
+            }
+        }
 
         if (await fs.pathExists(groupDir)) {
             await fs.remove(groupDir);
@@ -355,6 +368,25 @@ async function deleteAgentGroup(groupId) {
         if (await fs.pathExists(userDataGroupDir)) {
             await fs.remove(userDataGroupDir);
         }
+
+        if (groupConfig && groupConfig.silverCompanionManaged === true) {
+            const assistantIds = Object.values(groupConfig.silverCompanionAssistantIds || {}).filter(Boolean);
+            for (const assistantId of assistantIds) {
+                const assistantDir = path.join(mainAppPaths.AGENT_DIR, assistantId);
+                const assistantUserDataDir = path.join(mainAppPaths.USER_DATA_DIR, assistantId);
+                if (await fs.pathExists(assistantDir)) {
+                    await fs.remove(assistantDir);
+                }
+                if (await fs.pathExists(assistantUserDataDir)) {
+                    await fs.remove(assistantUserDataDir);
+                }
+            }
+
+            if (groupConfig.silverCompanionDataDir && await fs.pathExists(groupConfig.silverCompanionDataDir)) {
+                await fs.remove(groupConfig.silverCompanionDataDir);
+            }
+        }
+
         console.log(`[GroupChat] AgentGroup ${groupId} 已删除。`);
         return { success: true };
     } catch (error) {
@@ -688,6 +720,11 @@ ${canvasData.errors || 'No errors'}
                 max_tokens: agentConfig.maxOutputTokens ? parseInt(agentConfig.maxOutputTokens) : undefined,
                 stream: agentConfig.streamOutput === true || String(agentConfig.streamOutput) === 'true'
             };
+            const requestTarget = resolveModelRequestTarget({
+                defaultUrl: globalVcpSettings.vcpUrl,
+                enableToolInjection: false,
+                model: modelConfigForAgent.model,
+            });
 
             // 添加超时控制
             const controller = new AbortController();
@@ -696,15 +733,15 @@ ${canvasData.errors || 'No errors'}
             
             let response;
             try {
-                response = await fetch(globalVcpSettings.vcpUrl, {
+                response = await fetch(requestTarget.finalUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${globalVcpSettings.vcpApiKey}`
+                        ...(requestTarget.requiresAuth ? { 'Authorization': `Bearer ${globalVcpSettings.vcpApiKey}` } : {})
                     },
                     body: JSON.stringify({
                         messages: messagesForAI,
-                        model: modelConfigForAgent.model,
+                        model: requestTarget.resolvedModel,
                         temperature: modelConfigForAgent.temperature,
                         stream: modelConfigForAgent.stream,
                         messageId: messageIdForAgentResponse // 包含 messageId 以支持后端中断
@@ -1195,6 +1232,11 @@ ${canvasData.errors || 'No errors'}
             max_tokens: agentConfig.maxOutputTokens ? parseInt(agentConfig.maxOutputTokens) : undefined,
             stream: agentConfig.streamOutput === true || String(agentConfig.streamOutput) === 'true'
         };
+        const requestTarget = resolveModelRequestTarget({
+            defaultUrl: globalVcpSettings.vcpUrl,
+            enableToolInjection: false,
+            model: modelConfigForAgent.model,
+        });
 
         // 添加超时控制
         const controller = new AbortController();
@@ -1203,15 +1245,15 @@ ${canvasData.errors || 'No errors'}
         
         let response;
         try {
-            response = await fetch(globalVcpSettings.vcpUrl, {
+            response = await fetch(requestTarget.finalUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${globalVcpSettings.vcpApiKey}`
+                    ...(requestTarget.requiresAuth ? { 'Authorization': `Bearer ${globalVcpSettings.vcpApiKey}` } : {})
                 },
                 body: JSON.stringify({
                     messages: messagesForAI,
-                    model: modelConfigForAgent.model,
+                    model: requestTarget.resolvedModel,
                     temperature: modelConfigForAgent.temperature,
                     stream: modelConfigForAgent.stream,
                     max_tokens: modelConfigForAgent.max_tokens,
@@ -1605,6 +1647,27 @@ async function getGroupChatHistory(groupId, topicId) {
     return []; // Return empty array if no history
 }
 
+async function saveGroupChatHistory(groupId, topicId, history) {
+    if (!mainAppPaths.USER_DATA_DIR) {
+        return { success: false, error: 'Paths not initialized' };
+    }
+
+    const normalizedHistory = Array.isArray(history) ? history : [];
+    const historyFile = path.join(mainAppPaths.USER_DATA_DIR, groupId, 'topics', topicId, 'history.json');
+
+    try {
+        await fs.ensureDir(path.dirname(historyFile));
+        await fs.writeJson(historyFile, normalizedHistory, { spaces: 2 });
+        return {
+            success: true,
+            historyFile,
+        };
+    } catch (error) {
+        console.error(`[GroupChat] 保存群组 ${groupId} 话题 ${topicId} 聊天历史失败:`, error);
+        return { success: false, error: error.message };
+    }
+}
+
 
 /**
  * 新增：处理“重新回复”群聊消息的逻辑
@@ -1740,4 +1803,5 @@ module.exports = {
     deleteGroupTopic,
     saveGroupTopicTitle,
     getGroupChatHistory,
+    saveGroupChatHistory,
 };

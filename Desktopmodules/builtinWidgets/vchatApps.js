@@ -130,6 +130,12 @@
             <circle cx="24" cy="34" r="3" fill="currentColor" opacity="0.45"/>
         </svg>`,
         // 独立 Electron App 图标
+        silverCompanion: `<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M24 42s-12.5-8.7-16.2-16.1C4.05 18.58 8.1 10 16.2 10c3.45 0 5.85 1.67 7.8 4.03C25.95 11.67 28.35 10 31.8 10c8.1 0 12.15 8.58 8.4 15.9C36.5 33.3 24 42 24 42Z" fill="currentColor" opacity="0.11"/>
+            <path d="M24 42s-12.5-8.7-16.2-16.1C4.05 18.58 8.1 10 16.2 10c3.45 0 5.85 1.67 7.8 4.03C25.95 11.67 28.35 10 31.8 10c8.1 0 12.15 8.58 8.4 15.9C36.5 33.3 24 42 24 42Z" stroke="currentColor" stroke-width="2.5" fill="none"/>
+            <path d="M17 24h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M24 17v14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>`,
         toolbox: `<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
             <rect x="4" y="18" width="40" height="26" rx="4" fill="currentColor" opacity="0.1"/>
             <rect x="4" y="18" width="40" height="26" rx="4" stroke="currentColor" stroke-width="2.5" fill="none"/>
@@ -307,6 +313,16 @@
             emoji: '🎭',
             description: '打开主题定制与管理',
             appAction: 'open-themes-window',
+        },
+        {
+            id: 'vchat-app-silver-companion',
+            name: '银发伴侣',
+            icon: null,
+            animatedIcon: null,
+            svgIcon: SVG_ICONS.silverCompanion,
+            emoji: '❤',
+            description: '打开银发 AI 生活伴侣插件页',
+            appAction: 'open-silver-companion-window',
         },
         {
             id: 'vchat-app-toolbox',

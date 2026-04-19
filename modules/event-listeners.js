@@ -14,7 +14,7 @@ export function setupEventListeners(deps) {
         globalSettingsForm, userAvatarInput, createNewAgentBtn, createNewGroupBtn,
         currentItemActionBtn, clearNotificationsBtn, openForumBtn, toggleNotificationsBtn,
         notificationsSidebar, agentSearchInput, minimizeToTrayBtn, addNetworkPathBtn,
-        openTranslatorBtn, openNotesBtn, openMusicBtn, openCanvasBtn, toggleAssistantBtn,
+        openTranslatorBtn, openNotesBtn, openGatewayBtn, openSilverCompanionBtn, openMusicBtn, openCanvasBtn, toggleAssistantBtn,
         leftSidebar, toggleSidebarBtn,
         enableContextSanitizerCheckbox, contextSanitizerDepthContainer, seamFixer,
 
@@ -181,7 +181,9 @@ export function setupEventListeners(deps) {
             return;
         }
 
-        if (!globalSettings.vcpServerUrl) {
+        const selectedModel = String(currentSelectedItem?.config?.model || '').trim().toLowerCase();
+        const usingOllamaModel = selectedModel.startsWith('ollama/');
+        if (!globalSettings.vcpServerUrl && !usingOllamaModel) {
             uiHelperFunctions.showToastNotification('请先在全局设置中配置VCP服务器URL！', 'error');
             uiHelperFunctions.openModal('globalSettingsModal');
             return;
@@ -1186,6 +1188,33 @@ export function setupEventListeners(deps) {
             } else {
                 console.warn('[Renderer] electronAPI.openNotesWindow is not available.');
                 uiHelperFunctions.showToastNotification('无法打开笔记：功能不可用。', 'error');
+            }
+        });
+    }
+
+    if (openGatewayBtn) {
+        openGatewayBtn.addEventListener('click', async () => {
+            if (chatAPI?.openGatewayWindow) {
+                await chatAPI.openGatewayWindow();
+            } else {
+                console.warn('[Renderer] electronAPI.openGatewayWindow is not available.');
+                uiHelperFunctions.showToastNotification('无法打开模型网关管理：功能不可用。', 'error');
+            }
+        });
+    }
+
+    if (openSilverCompanionBtn) {
+        openSilverCompanionBtn.addEventListener('click', async () => {
+            if (chatAPI?.openSilverCompanionWindow) {
+                const currentSelectedItem = refs.currentSelectedItem.get();
+                if (currentSelectedItem?.type === 'group' && currentSelectedItem?.config?.silverCompanionManaged === true) {
+                    await chatAPI.openSilverCompanionWindow({ groupId: currentSelectedItem.id });
+                } else {
+                    await chatAPI.openSilverCompanionWindow();
+                }
+            } else {
+                console.warn('[Renderer] electronAPI.openSilverCompanionWindow is not available.');
+                uiHelperFunctions.showToastNotification('无法打开银发 AI 生活伴侣：功能不可用。', 'error');
             }
         });
     }

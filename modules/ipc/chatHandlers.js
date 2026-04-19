@@ -3,6 +3,8 @@ const { ipcMain, dialog, BrowserWindow } = require('electron');
 const fs = require('fs-extra');
 const path = require('path');
 const contextSanitizer = require('../contextSanitizer');
+const { resolveVcpApiKey } = require('../utils/vcpKeyResolver');
+const { resolveModelRequestTarget } = require('../utils/modelRouting');
 
 /**
  * Initializes chat and topic related IPC handlers.
@@ -18,8 +20,60 @@ const contextSanitizer = require('../contextSanitizer');
  */
 let ipcHandlersRegistered = false;
 
+function isJsonSyntaxError(error) {
+    if (!error) return false;
+    return error.name === 'SyntaxError' || /json|unexpected token|unexpected end/i.test(String(error.message || ''));
+}
+
+async function safeReadHistoryArray(historyFilePath) {
+    try {
+        const parsed = await fs.readJson(historyFilePath);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        if (!isJsonSyntaxError(error)) {
+            throw error;
+        }
+
+        // Keep a forensic copy and recover with an empty history so the UI can continue.
+        const backupPath = `${historyFilePath}.corrupt.${Date.now()}.bak`;
+        try {
+            await fs.move(historyFilePath, backupPath, { overwrite: true });
+            console.error(`[ChatHandlers] Corrupted history recovered: ${historyFilePath} -> ${backupPath}`);
+        } catch (backupError) {
+            console.error(`[ChatHandlers] Failed to backup corrupted history: ${historyFilePath}`, backupError);
+        }
+        return [];
+    }
+}
+
+async function writeJsonAtomic(filePath, data) {
+    const dir = path.dirname(filePath);
+    await fs.ensureDir(dir);
+    const tempFile = path.join(
+        dir,
+        `${path.basename(filePath)}.${process.pid}.${Date.now()}.tmp`
+    );
+    await fs.writeFile(tempFile, JSON.stringify(data, null, 2), 'utf8');
+    await fs.move(tempFile, filePath, { overwrite: true });
+}
+
+function stripCodexModelPrefix(model) {
+    const value = String(model || '').trim();
+    if (!value.toLowerCase().startsWith('openai-codex/')) return value;
+    return value.slice('openai-codex/'.length).trim();
+}
+
+function shouldRetryWithStrippedCodexModel(status, rawErrorText, model) {
+    if (status !== 400) return false;
+    const current = String(model || '').trim();
+    if (!current.toLowerCase().startsWith('openai-codex/')) return false;
+    const lowered = String(rawErrorText || '').toLowerCase();
+    return lowered.includes('not supported when using codex with a chatgpt account');
+}
+
 function initialize(mainWindow, context) {
     const { AGENT_DIR, USER_DATA_DIR, APP_DATA_ROOT_IN_PROJECT, NOTES_AGENT_ID, getMusicState, fileWatcher, agentConfigManager } = context;
+    const PROJECT_ROOT = path.dirname(APP_DATA_ROOT_IN_PROJECT);
 
     // Ensure the watcher is in a clean state on initialization
     if (fileWatcher) {
@@ -173,7 +227,7 @@ function initialize(mainWindow, context) {
 
 
             if (await fs.pathExists(historyFile)) {
-                return await fs.readJson(historyFile);
+                return await safeReadHistoryArray(historyFile);
             }
             return [];
         } catch (error) {
@@ -191,7 +245,11 @@ function initialize(mainWindow, context) {
             const historyDir = path.join(USER_DATA_DIR, agentId, 'topics', topicId);
             await fs.ensureDir(historyDir);
             const historyFile = path.join(historyDir, 'history.json');
-            await fs.writeJson(historyFile, history, { spaces: 2 });
+            const normalizedHistory = Array.isArray(history) ? history : [];
+            if (!Array.isArray(history)) {
+                console.warn(`[ChatHandlers] save-chat-history received non-array history for ${agentId}/${topicId}, normalized to [].`);
+            }
+            await writeJsonAtomic(historyFile, normalizedHistory);
             return { success: true };
         } catch (error) {
             console.error(`保存Agent ${agentId} 话题 ${topicId} 聊天历史失败:`, error);
@@ -597,6 +655,7 @@ function initialize(mainWindow, context) {
         }
 
         let finalVcpUrl = vcpUrl;
+        let requestTarget = null;
         let settings = {};
         try {
             const settingsPath = path.join(APP_DATA_ROOT_IN_PROJECT, 'settings.json');
@@ -605,19 +664,66 @@ function initialize(mainWindow, context) {
             }
 
             // **强制检查和切换URL**
-            if (settings.enableVcpToolInjection === true) {
-                const urlObject = new URL(vcpUrl);
-                urlObject.pathname = '/v1/chatvcp/completions';
-                finalVcpUrl = urlObject.toString();
-                console.log(`[Main - sendToVCP] VCP tool injection is ON. URL switched to: ${finalVcpUrl}`);
-            } else {
-                console.log(`[Main - sendToVCP] VCP tool injection is OFF. Using original URL: ${vcpUrl}`);
-            }
+            requestTarget = resolveModelRequestTarget({
+                defaultUrl: vcpUrl,
+                enableToolInjection: settings.enableVcpToolInjection === true,
+                model: modelConfig?.model,
+            });
+            finalVcpUrl = requestTarget.finalUrl;
+            console.log(`[Main - sendToVCP] Request target resolved: provider=${requestTarget.provider}, url=${finalVcpUrl}, model=${requestTarget.resolvedModel}`);
         } catch (e) {
             console.error(`[Main - sendToVCP] Error reading settings or switching URL: ${e.message}. Proceeding with original URL.`);
         }
 
+        if (!requestTarget) {
+            requestTarget = resolveModelRequestTarget({
+                defaultUrl: vcpUrl,
+                enableToolInjection: false,
+                model: modelConfig?.model,
+            });
+            finalVcpUrl = requestTarget.finalUrl;
+        }
+
+        let effectiveVcpApiKey = '';
+        if (requestTarget.requiresAuth) {
+            const vcpApiKeyResolution = resolveVcpApiKey({
+                projectRoot: PROJECT_ROOT,
+                vcpUrl: finalVcpUrl,
+                configuredKey: vcpApiKey,
+            });
+            effectiveVcpApiKey = vcpApiKeyResolution.effectiveKey;
+            if (vcpApiKeyResolution.source === 'local-toolbox-config') {
+                console.log(`[Main - sendToVCP] Resolved local VCP API key from ${vcpApiKeyResolution.configPath}`);
+            }
+        }
+
         try {
+            if (requestTarget.useToolInjection === true) {
+                const toolModeMarker = '[VCP Tool Mode]';
+                const toolModeInstruction = [
+                    toolModeMarker,
+                    'This session already has VCP tool access.',
+                    'Do not claim that no tools or plugins are available unless an actual tool call has already failed in this turn.',
+                    'When the user asks to fetch, search, open, or use a named VCP plugin, prefer emitting a VCP tool request block instead of describing limitations.',
+                    'Use the exact VCP tool syntax, not JSON and not markdown code fences.',
+                    'Format:',
+                    '<<<[TOOL_REQUEST]>>>',
+                    'maid:「始」YourName「末」',
+                    'tool_name:「始」PluginName「末」',
+                    'param_name:「始」param_value「末」',
+                    '<<<[END_TOOL_REQUEST]>>>',
+                    'If the user asks for raw or original tool output, keep the tool result verbatim and do not summarize it unless explicitly asked.'
+                ].join('\n');
+
+                let systemMsgIndex = messages.findIndex(m => m.role === 'system');
+                if (systemMsgIndex === -1) {
+                    messages.unshift({ role: 'system', content: toolModeInstruction });
+                } else if (!String(messages[systemMsgIndex].content || '').includes(toolModeMarker)) {
+                    const originalContent = String(messages[systemMsgIndex].content || '').trim();
+                    messages[systemMsgIndex].content = [toolModeInstruction, originalContent].filter(Boolean).join('\n\n').trim();
+                }
+            }
+
             // --- Agent Music Control Injection ---
             if (getMusicState) {
                 try {
@@ -748,7 +854,7 @@ function initialize(mainWindow, context) {
             // --- End of Context Sanitizer Integration ---
 
             console.log(`发送到VCP服务器: ${finalVcpUrl} for messageId: ${messageId}`);
-            console.log('VCP API Key:', vcpApiKey ? '已设置' : '未设置');
+            console.log('VCP API Key:', effectiveVcpApiKey ? '已设置' : '未设置');
             console.log('模型配置:', modelConfig);
             if (context) console.log('上下文:', context);
 
@@ -756,6 +862,7 @@ function initialize(mainWindow, context) {
             const requestBody = {
                 messages: messages,
                 ...modelConfig,
+                model: requestTarget.resolvedModel,
                 stream: modelConfig.stream === true,
                 requestId: messageId
             };
@@ -772,8 +879,9 @@ function initialize(mainWindow, context) {
 
             // 验证JSON可序列化性
             let serializedBody;
+            const serializeRequestBody = () => JSON.stringify(requestBody);
             try {
-                serializedBody = JSON.stringify(requestBody);
+                serializedBody = serializeRequestBody();
                 // 调试：记录前100个字符
                 console.log('[Main - sendToVCP] Request body preview:', serializedBody.substring(0, 100) + '...');
             } catch (serializeError) {
@@ -782,18 +890,43 @@ function initialize(mainWindow, context) {
                 return { error: `请求体序列化失败: ${serializeError.message}` };
             }
 
-            const response = await fetch(finalVcpUrl, {
+            const requestHeaders = {
+                'Content-Type': 'application/json',
+                ...(requestTarget.requiresAuth ? { 'Authorization': `Bearer ${effectiveVcpApiKey}` } : {})
+            };
+            const sendRequest = (bodyText) => fetch(finalVcpUrl, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${vcpApiKey}`
-                },
-                body: serializedBody
+                headers: requestHeaders,
+                body: bodyText
             });
 
+            let response = await sendRequest(serializedBody);
             if (!response.ok) {
-                const errorText = await response.text();
-                console.error(`[Main - sendToVCP] VCP请求失败. Status: ${response.status}, Response Text:`, errorText);
+                let errorText = await response.text();
+
+                if (shouldRetryWithStrippedCodexModel(response.status, errorText, requestBody.model)) {
+                    const fallbackModel = stripCodexModelPrefix(requestBody.model);
+                    if (fallbackModel && fallbackModel !== requestBody.model) {
+                        console.warn(`[Main - sendToVCP] 检测到 Codex ChatGPT 账号模型不兼容，自动重试模型: ${requestBody.model} -> ${fallbackModel}`);
+                        requestBody.model = fallbackModel;
+                        try {
+                            serializedBody = serializeRequestBody();
+                            console.log('[Main - sendToVCP] Retry request body preview:', serializedBody.substring(0, 100) + '...');
+                        } catch (serializeError) {
+                            console.error('[Main - sendToVCP] Failed to serialize retry request body:', serializeError);
+                            return { error: `重试请求体序列化失败: ${serializeError.message}` };
+                        }
+                        response = await sendRequest(serializedBody);
+                        if (!response.ok) {
+                            errorText = await response.text();
+                        } else {
+                            console.log(`[Main - sendToVCP] 自动重试成功，已切换为兼容模型: ${fallbackModel}`);
+                        }
+                    }
+                }
+
+                if (!response.ok) {
+                    console.error(`[Main - sendToVCP] VCP请求失败. Status: ${response.status}, Response Text:`, errorText);
                 let errorData = { message: `服务器返回状态 ${response.status}`, details: errorText };
                 try {
                     const parsedError = JSON.parse(errorText);
@@ -847,6 +980,7 @@ function initialize(mainWindow, context) {
                 err.details = errorData;
                 err.status = response.status;
                 throw err;
+                }
             }
 
             if (modelConfig.stream === true) {
@@ -955,7 +1089,12 @@ function initialize(mainWindow, context) {
             }
             const settings = await fs.readJson(settingsPath);
             const vcpUrl = settings.vcpServerUrl;
-            const vcpApiKey = settings.vcpApiKey;
+            const vcpApiKeyResolution = resolveVcpApiKey({
+                projectRoot: PROJECT_ROOT,
+                vcpUrl,
+                configuredKey: settings.vcpApiKey,
+            });
+            const vcpApiKey = vcpApiKeyResolution.effectiveKey;
 
             if (!vcpUrl) {
                 return { success: false, error: 'VCP Server URL is not configured.' };

@@ -4,7 +4,7 @@ import * as canvasHandler from './renderer_modules/ui/canvas-handler.js';
 import * as dynamicImageHandler from './renderer_modules/ui/dynamic-image-handler.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // --- 元素获取 ---
+    // --- 鍏冪礌鑾峰彇 ---
     const toolGrid = document.getElementById('tool-grid');
     const toolDetailView = document.getElementById('tool-detail-view');
     const backToGridBtn = document.getElementById('back-to-grid-btn');
@@ -13,14 +13,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const toolForm = document.getElementById('tool-form');
     const resultContainer = document.getElementById('result-container');
 
-    // --- 全局变量 ---
+    // --- 鍏ㄥ眬鍙橀噺 ---
     let VCP_SERVER_URL = '';
     let VCP_API_KEY = '';
     let USER_NAME = 'Human';
     let settings = {};
     let MAX_FILENAME_LENGTH = 400;
 
-    // --- 设置加载与保存 ---
+    // --- 璁剧疆鍔犺浇涓庝繚瀛?---
     async function loadSettings() {
         try {
             settings = await window.electronAPI.invoke('vcp-ht-get-settings');
@@ -43,7 +43,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // --- 初始化应用程序 ---
+    // --- 鍒濆鍖栧簲鐢ㄧ▼搴?---
     async function initializeApp() {
         await loadSettings();
 
@@ -60,12 +60,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         USER_NAME = settings.userName || 'Human';
         MAX_FILENAME_LENGTH = settings.maxFilenameLength || 400;
         
-        // 动态加载模块并传递配置
-        // 注意：由于移除了 require，模块需要重构为浏览器兼容的格式
+        // 鍔ㄦ€佸姞杞芥ā鍧楀苟浼犻€掗厤缃?
+        // 娉ㄦ剰锛氱敱浜庣Щ闄や簡 require锛屾ā鍧楅渶瑕侀噸鏋勪负娴忚鍣ㄥ吋瀹圭殑鏍煎紡
         canvasHandler.setMaxFilenameLength(MAX_FILENAME_LENGTH);
 
         if (!VCP_SERVER_URL || !VCP_API_KEY) {
-            toolGrid.innerHTML = `<div class="error">错误：无法加载配置文件 (settings.json)。请确保文件存在且格式正确。<br>未能从 settings.json 中找到 vcpServerUrl 或 vcpApiKey</div>`;
+            toolGrid.innerHTML = `<div class="error">閿欒锛氭棤娉曞姞杞介厤缃枃浠?(settings.json)銆傝纭繚鏂囦欢瀛樺湪涓旀牸寮忔纭€?br>鏈兘浠?settings.json 涓壘鍒?vcpServerUrl 鎴?vcpApiKey</div>`;
             return;
         }
 
@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
 
 
-    // --- 函数定义 ---
+    // --- 鍑芥暟瀹氫箟 ---
 
     function renderToolGrid() {
         toolGrid.innerHTML = '';
@@ -113,7 +113,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (tool.commands) {
             const commandSelectGroup = document.createElement('div');
             commandSelectGroup.className = 'form-group';
-            commandSelectGroup.innerHTML = `<label for="command-select">选择操作 (Command):</label>`;
+            commandSelectGroup.innerHTML = `<label for="command-select">閫夋嫨鎿嶄綔 (Command):</label>`;
             const commandSelect = document.createElement('select');
             commandSelect.id = 'command-select';
             commandSelect.name = 'command';
@@ -139,13 +139,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             renderFormParams(tool.params, paramsContainer, toolName);
         }
 
-        // 添加按钮容器
+        // 娣诲姞鎸夐挳瀹瑰櫒
         const buttonContainer = document.createElement('div');
         buttonContainer.style.cssText = 'display: flex; gap: 10px; margin-top: 15px; flex-wrap: wrap;';
         
         const submitButton = document.createElement('button');
         submitButton.type = 'submit';
-        submitButton.textContent = '执行';
+        submitButton.textContent = '鎵ц';
         submitButton.style.cssText = `
             background-color: var(--success-color);
             color: var(--text-on-accent);
@@ -158,10 +158,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         `;
         buttonContainer.appendChild(submitButton);
         
-        // 添加全部清空按钮
+        // 娣诲姞鍏ㄩ儴娓呯┖鎸夐挳
         const clearAllButton = document.createElement('button');
         clearAllButton.type = 'button';
-        clearAllButton.innerHTML = '🗑️ 全部清空';
+        clearAllButton.innerHTML = '馃棏锔?鍏ㄩ儴娓呯┖';
         clearAllButton.style.cssText = `
             background-color: var(--warning-color, #f59e0b);
             color: white;
@@ -179,22 +179,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         buttonContainer.appendChild(clearAllButton);
 
-        // 为 ComfyUI 工具添加设置按钮
+        // 涓?ComfyUI 宸ュ叿娣诲姞璁剧疆鎸夐挳
         if (toolName === 'ComfyUIGen') {
             const settingsButton = document.createElement('button');
             settingsButton.type = 'button';
-            settingsButton.textContent = '⚙️ 设置';
+            settingsButton.textContent = '鈿欙笍 璁剧疆';
             settingsButton.className = 'back-btn';
             settingsButton.style.cssText = 'margin-left: auto;';
             settingsButton.addEventListener('click', () => openComfyUISettings());
             buttonContainer.appendChild(settingsButton);
         }
         
-        // 为 NanoBananaGen 工具添加文件名设置按钮
+        // 涓?NanoBananaGen 宸ュ叿娣诲姞鏂囦欢鍚嶈缃寜閽?
         if (toolName === 'NanoBananaGen') {
             const filenameSettingsButton = document.createElement('button');
             filenameSettingsButton.type = 'button';
-            filenameSettingsButton.innerHTML = '⚙️ 设置';
+            filenameSettingsButton.innerHTML = '鈿欙笍 璁剧疆';
             filenameSettingsButton.style.cssText = `
                 background-color: var(--secondary-color, #6b7280);
                 color: white;
@@ -225,9 +225,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         container.innerHTML = '';
         const dependencyListeners = [];
 
-        // 检查是否为 NanoBananaGen 的 compose 命令
+        // 妫€鏌ユ槸鍚︿负 NanoBananaGen 鐨?compose 鍛戒护
         const isNanoBananaCompose = toolName === 'NanoBananaGen' && commandName === 'compose';
-        let imageUrlCounter = 1; // 用于动态图片输入框的计数器
+        let imageUrlCounter = 1; // 鐢ㄤ簬鍔ㄦ€佸浘鐗囪緭鍏ユ鐨勮鏁板櫒
 
         params.forEach(param => {
             const paramGroup = document.createElement('div');
@@ -269,7 +269,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     });
                 });
             } else if (param.type === 'dragdrop_image') {
-                // 创建拖拽上传图片输入框
+                // 鍒涘缓鎷栨嫿涓婁紶鍥剧墖杈撳叆妗?
                 input = canvasHandler.createDragDropImageInput(param);
 
             } else if (param.type === 'checkbox') {
@@ -298,12 +298,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 checkboxLabel.appendChild(checkboxText);
                 input.appendChild(checkboxLabel);
                 
-                // 添加翻译相关的UI元素
+                // 娣诲姞缈昏瘧鐩稿叧鐨刄I鍏冪礌
                 if (param.name === 'enable_translation') {
                     const translationContainer = createTranslationContainer(param.name);
                     input.appendChild(translationContainer);
                     
-                    // 监听 checkbox 状态变化
+                    // 鐩戝惉 checkbox 鐘舵€佸彉鍖?
                     checkbox.addEventListener('change', (e) => {
                         const container = input.querySelector('.translation-container');
                         if (container) {
@@ -315,11 +315,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 input = document.createElement('input');
                 input.type = param.type || 'text';
                 
-                // 为数字类型添加属性支持
+                // 涓烘暟瀛楃被鍨嬫坊鍔犲睘鎬ф敮鎸?
                 if (input.type === 'number') {
                     if (param.min !== undefined) input.min = param.min;
                     if (param.max !== undefined) input.max = param.max;
-                    // 默认步长为 any，允许输入小数，除非另有指定
+                    // 榛樿姝ラ暱涓?any锛屽厑璁歌緭鍏ュ皬鏁帮紝闄ら潪鍙︽湁鎸囧畾
                     input.step = param.step || 'any';
                 }
             }
@@ -357,7 +357,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
 
-        // 如果是 NanoBanana compose 模式，添加动态图片管理区域
+        // 濡傛灉鏄?NanoBanana compose 妯″紡锛屾坊鍔犲姩鎬佸浘鐗囩鐞嗗尯鍩?
         if (isNanoBananaCompose) {
             dynamicImageHandler.createDynamicImageContainer(container);
         }
@@ -365,7 +365,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         dependencyListeners.forEach(listener => listener());
     }
 
-    // 创建翻译容器
+    // 鍒涘缓缈昏瘧瀹瑰櫒
     function createTranslationContainer(paramName) {
         const container = document.createElement('div');
         container.className = 'translation-container';
@@ -378,7 +378,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             background: rgba(59, 130, 246, 0.05);
         `;
         
-        // 翻译设置区域
+        // 缈昏瘧璁剧疆鍖哄煙
         const settingsArea = document.createElement('div');
         settingsArea.style.cssText = `
             display: flex;
@@ -389,7 +389,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         `;
         
         const qualityLabel = document.createElement('label');
-        qualityLabel.textContent = '质量：';
+        qualityLabel.textContent = '璐ㄩ噺锛?;
         qualityLabel.style.cssText = `
             font-weight: bold;
             color: var(--secondary-text);
@@ -399,9 +399,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         const qualitySelect = document.createElement('select');
         qualitySelect.className = 'translation-quality-select';
         qualitySelect.innerHTML = `
-            <option value="gemini-2.5-flash-lite-preview-06-17">快速</option>
-            <option value="gemini-2.5-flash" selected>均衡</option>
-            <option value="gemini-2.5-pro">质量</option>
+            <option value="gemini-2.5-flash-lite-preview-06-17">蹇€?/option>
+            <option value="gemini-2.5-flash" selected>鍧囪　</option>
+            <option value="gemini-2.5-pro">璐ㄩ噺</option>
         `;
         qualitySelect.style.cssText = `
             padding: 6px 12px;
@@ -412,7 +412,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         `;
         
         const languageLabel = document.createElement('label');
-        languageLabel.textContent = '目标语言：';
+        languageLabel.textContent = '鐩爣璇█锛?;
         languageLabel.style.cssText = `
             font-weight: bold;
             color: var(--secondary-text);
@@ -422,13 +422,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const languageSelect = document.createElement('select');
         languageSelect.className = 'translation-language-select';
         languageSelect.innerHTML = `
-            <option value="en" selected>英语</option>
-            <option value="zh">中文</option>
-            <option value="ja">日语</option>
-            <option value="ko">韩语</option>
-            <option value="fr">法语</option>
-            <option value="de">德语</option>
-            <option value="es">西班牙语</option>
+            <option value="en" selected>鑻辫</option>
+            <option value="zh">涓枃</option>
+            <option value="ja">鏃ヨ</option>
+            <option value="ko">闊╄</option>
+            <option value="fr">娉曡</option>
+            <option value="de">寰疯</option>
+            <option value="es">瑗跨彮鐗欒</option>
         `;
         languageSelect.style.cssText = `
             padding: 6px 12px;
@@ -444,7 +444,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         settingsArea.appendChild(languageSelect);
         
         const translatedPromptLabel = document.createElement('label');
-        translatedPromptLabel.textContent = '翻译后的提示词：';
+        translatedPromptLabel.textContent = '缈昏瘧鍚庣殑鎻愮ず璇嶏細';
         translatedPromptLabel.style.cssText = `
             display: block;
             margin-bottom: 8px;
@@ -454,8 +454,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         const translatedPromptArea = document.createElement('textarea');
         translatedPromptArea.className = 'translated-prompt';
-        translatedPromptArea.placeholder = '翻译结果将显示在这里…';
-        translatedPromptArea.readOnly = false; // 允许用户编辑
+        translatedPromptArea.placeholder = '缈昏瘧缁撴灉灏嗘樉绀哄湪杩欓噷鈥?;
+        translatedPromptArea.readOnly = false; // 鍏佽鐢ㄦ埛缂栬緫
         translatedPromptArea.style.cssText = `
             width: 100%;
             min-height: 80px;
@@ -478,7 +478,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         const translateButton = document.createElement('button');
         translateButton.type = 'button';
-        translateButton.innerHTML = '🌍 翻译';
+        translateButton.innerHTML = '馃實 缈昏瘧';
         translateButton.style.cssText = `
             background: var(--primary-color);
             color: white;
@@ -491,7 +491,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         const useOriginalButton = document.createElement('button');
         useOriginalButton.type = 'button';
-        useOriginalButton.innerHTML = '⬅️ 使用原文';
+        useOriginalButton.innerHTML = '猬咃笍 浣跨敤鍘熸枃';
         useOriginalButton.style.cssText = `
             background: var(--warning-color, #f59e0b);
             color: white;
@@ -502,7 +502,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             font-size: 14px;
         `;
         
-        // 翻译功能
+        // 缈昏瘧鍔熻兘
         translateButton.addEventListener('click', async () => {
             const promptTextarea = toolForm.querySelector('textarea[name="prompt"]');
             if (promptTextarea && promptTextarea.value.trim()) {
@@ -510,11 +510,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const targetLang = languageSelect.value;
                 await translatePrompt(promptTextarea.value, translatedPromptArea, translateButton, quality, targetLang);
             } else {
-                alert('请先输入提示词');
+                alert('璇峰厛杈撳叆鎻愮ず璇?);
             }
         });
         
-        // 使用原文
+        // 浣跨敤鍘熸枃
         useOriginalButton.addEventListener('click', () => {
             const promptTextarea = toolForm.querySelector('textarea[name="prompt"]');
             if (promptTextarea) {
@@ -533,35 +533,35 @@ document.addEventListener('DOMContentLoaded', async () => {
         return container;
     }
 
-    // 翻译提示词
+    // 缈昏瘧鎻愮ず璇?
     async function translatePrompt(text, outputTextarea, button, quality = 'gemini-2.5-flash', targetLang = 'en') {
         const originalText = button.innerHTML;
-        button.innerHTML = '🔄 翻译中...';
+        button.innerHTML = '馃攧 缈昏瘧涓?..';
         button.disabled = true;
         
         try {
-            // 获取目标语言名称
+            // 鑾峰彇鐩爣璇█鍚嶇О
             const languageMap = {
-                'en': '英语',
-                'zh': '中文', 
-                'ja': '日语',
-                'ko': '韩语',
-                'fr': '法语',
-                'de': '德语',
-                'es': '西班牙语'
+                'en': '鑻辫',
+                'zh': '涓枃', 
+                'ja': '鏃ヨ',
+                'ko': '闊╄',
+                'fr': '娉曡',
+                'de': '寰疯',
+                'es': '瑗跨彮鐗欒'
             };
             
-            const targetLanguageText = languageMap[targetLang] || '英语';
+            const targetLanguageText = languageMap[targetLang] || '鑻辫';
             
-            // 构建系统提示词（与 VCPChat 翻译模块保持一致）
-            const systemPrompt = `你是一个专业的翻译助手。请将用户提供的文本翻译成${targetLanguageText}。 仅返回翻译结果，不要包含任何解释或额外信息。`;
+            // 鏋勫缓绯荤粺鎻愮ず璇嶏紙涓?VCPChat 缈昏瘧妯″潡淇濇寔涓€鑷达級
+            const systemPrompt = `浣犳槸涓€涓笓涓氱殑缈昏瘧鍔╂墜銆傝灏嗙敤鎴锋彁渚涚殑鏂囨湰缈昏瘧鎴?{targetLanguageText}銆?浠呰繑鍥炵炕璇戠粨鏋滐紝涓嶈鍖呭惈浠讳綍瑙ｉ噴鎴栭澶栦俊鎭€俙;
             
             const messages = [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: text }
             ];
             
-            // 使用 VCP 的 chat 接口进行翻译
+            // 浣跨敤 VCP 鐨?chat 鎺ュ彛杩涜缈昏瘧
             const chatUrl = VCP_SERVER_URL.replace('/v1/human/tool', '/v1/chat/completions');
             const response = await fetch(chatUrl, {
                 method: 'POST',
@@ -580,7 +580,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             if (!response.ok) {
                 const errorText = await response.text();
-                throw new Error(`服务器错误: ${response.status} ${response.statusText} - ${errorText}`);
+                throw new Error(`鏈嶅姟鍣ㄩ敊璇? ${response.status} ${response.statusText} - ${errorText}`);
             }
             
             const result = await response.json();
@@ -589,62 +589,62 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (translation) {
                 outputTextarea.value = translation.trim();
             } else {
-                throw new Error('API 返回的响应中没有有效的翻译内容。');
+                throw new Error('API 杩斿洖鐨勫搷搴斾腑娌℃湁鏈夋晥鐨勭炕璇戝唴瀹广€?);
             }
         } catch (error) {
-            console.error('翻译失败:', error);
-            outputTextarea.value = `翻译失败: ${error.message}\n\n原文: ${text}`;
+            console.error('缈昏瘧澶辫触:', error);
+            outputTextarea.value = `缈昏瘧澶辫触: ${error.message}\n\n鍘熸枃: ${text}`;
         } finally {
             button.innerHTML = originalText;
             button.disabled = false;
         }
     }
 
-    // 全部清空功能
+    // 鍏ㄩ儴娓呯┖鍔熻兘
     function clearAllFormData(toolName) {
-        const confirmed = confirm('确定要清空所有内容吗？包括提示词、翻译内容、图片和额外图片。');
+        const confirmed = confirm('纭畾瑕佹竻绌烘墍鏈夊唴瀹瑰悧锛熷寘鎷彁绀鸿瘝銆佺炕璇戝唴瀹广€佸浘鐗囧拰棰濆鍥剧墖銆?);
         
         if (!confirmed) return;
         
-        // 1. 清空所有输入框
+        // 1. 娓呯┖鎵€鏈夎緭鍏ユ
         const inputs = toolForm.querySelectorAll('input, textarea, select');
         inputs.forEach(input => {
             if (input.type === 'checkbox' || input.type === 'radio') {
                 input.checked = input.defaultChecked || false;
             } else if (input.tagName === 'SELECT') {
-                input.selectedIndex = 0; // 重置为默认选项
+                input.selectedIndex = 0; // 閲嶇疆涓洪粯璁ら€夐」
             } else {
                 input.value = '';
             }
         });
         
-        // 2. 清空翻译容器
+        // 2. 娓呯┖缈昏瘧瀹瑰櫒
         const translationContainers = toolForm.querySelectorAll('.translation-container');
         translationContainers.forEach(container => {
             const translatedPrompt = container.querySelector('.translated-prompt');
             if (translatedPrompt) {
                 translatedPrompt.value = '';
             }
-            // 隐藏翻译容器
+            // 闅愯棌缈昏瘧瀹瑰櫒
             container.style.display = 'none';
         });
         
-        // 3. 清空图片预览区域
+        // 3. 娓呯┖鍥剧墖棰勮鍖哄煙
         const previewAreas = toolForm.querySelectorAll('.image-preview-area');
         previewAreas.forEach(preview => {
             preview.style.display = 'none';
             preview.innerHTML = '';
         });
         
-        // 4. 显示所有拖拽区域，隐藏清空按钮
+        // 4. 鏄剧ず鎵€鏈夋嫋鎷藉尯鍩燂紝闅愯棌娓呯┖鎸夐挳
         const dropZones = toolForm.querySelectorAll('.drop-zone');
         const clearButtons = toolForm.querySelectorAll('.clear-image-btn');
         
         dropZones.forEach(dropZone => {
             dropZone.style.display = 'block';
             dropZone.innerHTML = `
-                <div class="drop-icon">📁</div>
-                <div class="drop-text">拖拽图片文件到此处或点击选择</div>
+                <div class="drop-icon">馃搧</div>
+                <div class="drop-text">鎷栨嫿鍥剧墖鏂囦欢鍒版澶勬垨鐐瑰嚮閫夋嫨</div>
             `;
             dropZone.style.color = 'var(--secondary-text)';
         });
@@ -653,13 +653,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             btn.style.display = 'none';
         });
         
-        // 5. 清空动态图片区域（仅限 NanoBananaGen compose 模式）
+        // 5. 娓呯┖鍔ㄦ€佸浘鐗囧尯鍩燂紙浠呴檺 NanoBananaGen compose 妯″紡锛?
         if (toolName === 'NanoBananaGen') {
             const dynamicContainer = toolForm.querySelector('.dynamic-images-container');
             if (dynamicContainer) {
                 const imagesList = dynamicContainer.querySelector('.sortable-images-list');
                 if (imagesList) {
-                    // 清空所有动态添加的图片
+                    // 娓呯┖鎵€鏈夊姩鎬佹坊鍔犵殑鍥剧墖
                     const dynamicItems = imagesList.querySelectorAll('.dynamic-image-item');
                     dynamicItems.forEach(item => {
                         item.remove();
@@ -668,12 +668,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
         
-        // 6. 清空结果容器
+        // 6. 娓呯┖缁撴灉瀹瑰櫒
         if (resultContainer) {
             resultContainer.innerHTML = '';
         }
         
-        // 7. 显示成功提示
+        // 7. 鏄剧ず鎴愬姛鎻愮ず
         const successMessage = document.createElement('div');
         successMessage.className = 'success-notification';
         successMessage.style.cssText = `
@@ -689,10 +689,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             font-weight: 500;
             box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
         `;
-        successMessage.textContent = '✓ 已清空所有内容';
+        successMessage.textContent = '鉁?宸叉竻绌烘墍鏈夊唴瀹?;
         document.body.appendChild(successMessage);
         
-        // 3秒后移除提示
+        // 3绉掑悗绉婚櫎鎻愮ず
         setTimeout(() => {
             if (successMessage.parentNode) {
                 successMessage.classList.add('removing');
@@ -705,7 +705,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 2700);
     }
 
-    // 显示文件名设置对话框
+    // 鏄剧ず鏂囦欢鍚嶈缃璇濇
     function showFilenameSettings() {
         const overlay = document.createElement('div');
         overlay.style.cssText = `
@@ -733,10 +733,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         `;
         
         dialog.innerHTML = `
-            <h3 style="margin: 0 0 20px 0; color: var(--primary-text); text-align: center;">文件名显示设置</h3>
+            <h3 style="margin: 0 0 20px 0; color: var(--primary-text); text-align: center;">鏂囦欢鍚嶆樉绀鸿缃?/h3>
             <div style="margin-bottom: 20px;">
                 <label style="display: block; margin-bottom: 8px; color: var(--secondary-text); font-weight: bold;">
-                    文件名最大长度（超过则省略）：
+                    鏂囦欢鍚嶆渶澶ч暱搴︼紙瓒呰繃鍒欑渷鐣ワ級锛?
                 </label>
                 <input type="number" id="filename-length-input" 
                     value="${MAX_FILENAME_LENGTH}" 
@@ -754,7 +754,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     "
                 >
                 <div style="font-size: 12px; color: var(--secondary-text); margin-top: 5px;">
-                    建议范围：50-1000 字符，默认为 400
+                    寤鸿鑼冨洿锛?0-1000 瀛楃锛岄粯璁や负 400
                 </div>
             </div>
             <div style="display: flex; gap: 10px; justify-content: flex-end;">
@@ -765,7 +765,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     padding: 10px 20px;
                     border-radius: 4px;
                     cursor: pointer;
-                ">取消</button>
+                ">鍙栨秷</button>
                 <button id="save-btn" style="
                     background: var(--primary-color);
                     color: white;
@@ -773,7 +773,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     padding: 10px 20px;
                     border-radius: 4px;
                     cursor: pointer;
-                ">保存</button>
+                ">淇濆瓨</button>
             </div>
         `;
         
@@ -794,7 +794,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 try {
                     await saveSettings();
                     
-                    // 显示成功提示
+                    // 鏄剧ず鎴愬姛鎻愮ず
                     const successMsg = document.createElement('div');
                     successMsg.className = 'success-notification';
                     successMsg.style.cssText = `
@@ -809,7 +809,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         font-size: 14px;
                         font-weight: 500;
                     `;
-                    successMsg.textContent = '✓ 设置已保存';
+                    successMsg.textContent = '鉁?璁剧疆宸蹭繚瀛?;
                     document.body.appendChild(successMsg);
                     
                     setTimeout(() => {
@@ -821,17 +821,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                     document.body.removeChild(overlay);
                 } catch (saveError) {
                     console.error('[VCPHumanToolBox] Failed to save settings:', saveError);
-                    alert('保存设置失败：' + saveError.message);
+                    alert('淇濆瓨璁剧疆澶辫触锛? + saveError.message);
                 }
             } else {
-                alert('请输入 50-1000 之间的数值');
+                alert('璇疯緭鍏?50-1000 涔嬮棿鐨勬暟鍊?);
             }
         });
         
         overlay.appendChild(dialog);
         document.body.appendChild(overlay);
         
-        // 点击背景关闭
+        // 鐐瑰嚮鑳屾櫙鍏抽棴
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
                 document.body.removeChild(overlay);
@@ -883,7 +883,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
         // 1. Handle errors first
         if (data.status === 'error' || data.error) {
-            const errorMessage = data.error || data.message || '未知错误';
+            const errorMessage = data.error || data.message || '鏈煡閿欒';
             const pre = document.createElement('pre');
             pre.className = 'error';
             pre.textContent = typeof errorMessage === 'object' ? JSON.stringify(errorMessage, null, 2) : errorMessage;
@@ -907,7 +907,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // 3. Render content based on its type
         if (content == null) {
             const p = document.createElement('p');
-            p.textContent = '插件执行完毕，但没有返回明确内容。';
+            p.textContent = '鎻掍欢鎵ц瀹屾瘯锛屼絾娌℃湁杩斿洖鏄庣‘鍐呭銆?;
             resultContainer.appendChild(p);
         } else if (content && Array.isArray(content.content)) { // Multi-modal content (e.g., from GPT-4V)
             content.content.forEach(item => {
@@ -1018,7 +1018,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         } else { // Fallback for any other data type
             const pre = document.createElement('pre');
-            pre.textContent = `插件返回了未知类型的数据: ${String(content)}`;
+            pre.textContent = `鎻掍欢杩斿洖浜嗘湭鐭ョ被鍨嬬殑鏁版嵁: ${String(content)}`;
             resultContainer.appendChild(pre);
         }
     
@@ -1093,7 +1093,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // --- 初始化 ---
+    // --- 鍒濆鍖?---
     async function loadAndProcessWallpaper() {
         const bodyStyles = getComputedStyle(document.body);
         let wallpaperUrl = bodyStyles.backgroundImage;
@@ -1136,10 +1136,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         function applyTheme(theme) {
             if (theme === 'light') {
                 document.body.classList.add('light-theme');
-                themeToggleBtn.textContent = '☀️';
+                themeToggleBtn.textContent = '鈽€锔?;
             } else {
                 document.body.classList.remove('light-theme');
-                themeToggleBtn.textContent = '🌙';
+                themeToggleBtn.textContent = '馃寵';
             }
         }
 
@@ -1165,12 +1165,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             toolGrid.style.display = 'grid';
         });
 
-        // 工作流编排按钮
-        const workflowBtn = document.getElementById('workflow-btn');
-        if (workflowBtn) {
-            workflowBtn.addEventListener('click', openWorkflowEditor);
-        }
-        
+        // 宸ヤ綔娴佺紪鎺掓寜閽?
         renderToolGrid();
         loadAndProcessWallpaper();
         setupImageViewer();
@@ -1178,7 +1173,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     initializeApp();
 
-    // --- ComfyUI 集成功能 ---
+    // --- ComfyUI 闆嗘垚鍔熻兘 ---
     let comfyUIDrawer = null;
     let comfyUILoaded = false;
 
@@ -1192,7 +1187,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         drawer.innerHTML = `
             <div class="drawer-content" id="comfyui-drawer-content">
                 <div style="text-align: center; padding: 50px; color: var(--secondary-text);">
-                    正在加载 ComfyUI 配置...
+                    姝ｅ湪鍔犺浇 ComfyUI 閰嶇疆...
                 </div>
             </div>
         `;
@@ -1229,15 +1224,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                     
                     comfyUILoaded = true;
                 } else {
-                    throw new Error('ComfyUILoader 未能正确加载');
+                    throw new Error('ComfyUILoader 鏈兘姝ｇ‘鍔犺浇');
                 }
             } catch (error) {
-                console.error('加载 ComfyUI 模块失败:', error);
+                console.error('鍔犺浇 ComfyUI 妯″潡澶辫触:', error);
                 const drawerContent = document.getElementById('comfyui-drawer-content');
                 if (drawerContent) {
                     drawerContent.innerHTML = `
                         <div style="text-align: center; padding: 50px; color: var(--danger-color);">
-                            加载 ComfyUI 配置失败: ${error.message}
+                            鍔犺浇 ComfyUI 閰嶇疆澶辫触: ${error.message}
                         </div>
                     `;
                 }
@@ -1268,58 +1263,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         return new Promise((resolve, reject) => {
             loaderScript.onload = resolve;
-            loaderScript.onerror = () => reject(new Error('无法加载 ComfyUILoader.js'));
+            loaderScript.onerror = () => reject(new Error('鏃犳硶鍔犺浇 ComfyUILoader.js'));
             document.head.appendChild(loaderScript);
         });
     }
 
-    // --- 工作流编排集成功能 ---
-    let workflowEditorLoaded = false;
 
-    async function openWorkflowEditor() {
-        try {
-            if (!workflowEditorLoaded) {
-                await loadWorkflowEditorModules();
-                workflowEditorLoaded = true;
-            }
-
-            if (window.workflowEditor) {
-                window.workflowEditor.show();
-            } else {
-                throw new Error('工作流编排器未能正确初始化');
-            }
-        } catch (error) {
-            console.error('打开工作流编排器失败:', error);
-            alert(`打开工作流编排器失败: ${error.message}`);
-        }
-    }
-
-    async function loadWorkflowEditorModules() {
-        const loaderScript = document.createElement('script');
-        loaderScript.src = 'WorkflowEditormodules/WorkflowEditorLoader_Simplified.js';
-        
-        await new Promise((resolve, reject) => {
-            loaderScript.onload = resolve;
-            loaderScript.onerror = () => reject(new Error('无法加载 WorkflowEditorLoader_Simplified.js'));
-            document.head.appendChild(loaderScript);
-        });
-
-        if (window.WorkflowEditorLoader) {
-            await window.WorkflowEditorLoader.load();
-            
-            if (window.workflowEditor) {
-                await window.workflowEditor.init();
-                console.log('工作流编排器初始化成功');
-            } else {
-                throw new Error('WorkflowEditor 配置模块未能正确加载');
-            }
-        } else {
-            throw new Error('WorkflowEditorLoader 未能正确加载');
-        }
-    }
-
-    // 将函数暴露到全局作用域，以便按钮点击时调用
+    // 灏嗗嚱鏁版毚闇插埌鍏ㄥ眬浣滅敤鍩燂紝浠ヤ究鎸夐挳鐐瑰嚮鏃惰皟鐢?
     window.openComfyUISettings = openComfyUISettings;
     window.closeComfyUISettings = closeComfyUISettings;
-    window.openWorkflowEditor = openWorkflowEditor;
 });

@@ -1,24 +1,31 @@
 Option Explicit
 
-Dim WshShell, commandToRun, projectPath, splashPath
+Dim WshShell, fso, commandToRun, bootstrapCommand, projectPath, splashPath, electronCmdPath, launchLogPath
 
-' 获取脚本所在的目录，假设 .vbs 文件在项目根目录
-projectPath = CreateObject("Scripting.FileSystemObject").GetParentFolderName(WScript.ScriptFullName)
+Set fso = CreateObject("Scripting.FileSystemObject")
+projectPath = fso.GetParentFolderName(WScript.ScriptFullName)
 splashPath = """" & projectPath & "\NativeSplash.exe"""
-' 构建要执行的命令
-' 我们将直接运行 electron，而不是通过 npm start 或 start.bat，以避免它们的窗口
-' 确保 electron 在你的 PATH 环境变量中，或者使用 electron 的完整路径
-' 如果 electron 是作为项目依赖安装的 (node_modules/.bin/electron)，可以使用 npx
-commandToRun = "cmd /c cd /d """ & projectPath & """ && npx electron ."
-
+electronCmdPath = projectPath & "\node_modules\.bin\electron.cmd"
+launchLogPath = projectPath & "\AppData\launch-vchat.log"
 
 Set WshShell = CreateObject("WScript.Shell")
 
-' 先以隐藏窗口方式启动原生启动器
-WshShell.Run splashPath, 0, False
+If Not fso.FileExists(electronCmdPath) Then
+    MsgBox "Local Electron dependencies were not found." & vbCrLf & _
+        "A visible install window will open now." & vbCrLf & _
+        "VCPChat will relaunch automatically after npm install completes.", vbInformation, "VCPChat"
+    bootstrapCommand = "cmd /c cd /d """ & projectPath & """ && call ensure-node-deps.bat && wscript.exe """ & WScript.ScriptFullName & """"
+    WshShell.Run bootstrapCommand, 1, False
+    Set fso = Nothing
+    Set WshShell = Nothing
+    WScript.Quit 1
+End If
 
-' 然后再启动主应用
+commandToRun = "cmd /c chcp 65001 >nul && cd /d """ & projectPath & """ && """ & electronCmdPath & """ . 1>>""" & launchLogPath & """ 2>&1"
+
+WshShell.Run splashPath, 0, False
 WshShell.Run commandToRun, 0, False
 
+Set fso = Nothing
 Set WshShell = Nothing
 WScript.Quit

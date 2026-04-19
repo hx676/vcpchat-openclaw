@@ -11,11 +11,64 @@ const { PRELOAD_ROLES, resolveAppPreload } = require('../services/preloadPaths')
 let ipcHandlersRegistered = false;
 let forumWindowInstance = null;
 let memoWindowInstance = null;
+let gatewayWindowInstance = null;
+let silverCompanionPlugin = null;
+let mainWindowInstance = null;
+
+function getSilverCompanionPlugin() {
+    if (!silverCompanionPlugin) {
+        silverCompanionPlugin = require(path.join(__dirname, '../../VCPDistributedServer/Plugin/SilverCompanion/SilverCompanion'));
+    }
+    return silverCompanionPlugin;
+}
+
+function getMainWindow() {
+    return mainWindowInstance;
+}
+
+function focusMainWindow() {
+    if (!mainWindowInstance || mainWindowInstance.isDestroyed()) {
+        return false;
+    }
+
+    if (mainWindowInstance.isMinimized()) {
+        mainWindowInstance.restore();
+    }
+    if (!mainWindowInstance.isVisible()) {
+        mainWindowInstance.show();
+    }
+    mainWindowInstance.focus();
+    return true;
+}
+
+function openSilverCompanionOpsGroup(payload = {}) {
+    if (!focusMainWindow()) {
+        return {
+            success: false,
+            error: 'main_window_unavailable',
+        };
+    }
+
+    if (mainWindowInstance && mainWindowInstance.webContents && !mainWindowInstance.webContents.isDestroyed()) {
+        mainWindowInstance.webContents.send('silver-companion:open-ops-group', {
+            groupId: payload.groupId || 'silvercompanion_ops_group',
+            topicId: payload.topicId || 'silvercompanion_ops_main',
+        });
+    }
+
+    return {
+        success: true,
+        groupId: payload.groupId || 'silvercompanion_ops_group',
+        topicId: payload.topicId || 'silvercompanion_ops_main',
+    };
+}
 
 function initialize(mainWindow, openChildWindows) {
     if (ipcHandlersRegistered) {
         return;
     }
+
+    mainWindowInstance = mainWindow;
 
     // --- Window Control IPC Handlers ---
     ipcMain.on('minimize-window', (event) => {
@@ -250,9 +303,77 @@ function initialize(mainWindow, openChildWindows) {
         });
     });
 
+    ipcMain.on('open-gateway-window', () => {
+        if (gatewayWindowInstance && !gatewayWindowInstance.isDestroyed()) {
+            if (!gatewayWindowInstance.isVisible()) {
+                gatewayWindowInstance.show();
+            }
+            gatewayWindowInstance.focus();
+            return;
+        }
+
+        const gatewayWindow = new BrowserWindow({
+            width: 1180,
+            height: 820,
+            minWidth: 920,
+            minHeight: 640,
+            title: '模型网关管理',
+            modal: false,
+            frame: false,
+            ...(process.platform === 'darwin' ? {} : { titleBarStyle: 'hidden' }),
+            webPreferences: {
+                preload: resolveAppPreload(app.getAppPath(), PRELOAD_ROLES.UTILITY),
+                contextIsolation: true,
+                nodeIntegration: false,
+            },
+            icon: path.join(__dirname, '../../assets/icon.png'),
+            show: false,
+        });
+
+        gatewayWindowInstance = gatewayWindow;
+        gatewayWindow.setMenu(null);
+        gatewayWindow.loadURL(`file://${path.join(__dirname, '../../Gatewaymodules/gateway.html')}`);
+
+        gatewayWindow.once('ready-to-show', () => {
+            gatewayWindow.show();
+        });
+
+        openChildWindows.push(gatewayWindow);
+
+        gatewayWindow.on('close', (event) => {
+            if (process.platform === 'darwin') {
+                event.preventDefault();
+                gatewayWindow.hide();
+            }
+        });
+
+        gatewayWindow.on('closed', () => {
+            const index = openChildWindows.indexOf(gatewayWindow);
+            if (index > -1) {
+                openChildWindows.splice(index, 1);
+            }
+            gatewayWindowInstance = null;
+        });
+    });
+
+    ipcMain.on('open-silver-companion-window', async (_event, payload = {}) => {
+        try {
+            const plugin = getSilverCompanionPlugin();
+            await plugin.processToolCall({ command: 'OpenSilverCompanionDashboard', ...(payload || {}) });
+        } catch (error) {
+            console.error('[WindowHandlers] Failed to open SilverCompanion window:', error);
+        }
+    });
+
+    ipcMain.handle('open-silver-companion-ops-group', async (_event, payload = {}) => {
+        return openSilverCompanionOpsGroup(payload);
+    });
+
     ipcHandlersRegistered = true;
 }
 
 module.exports = {
-    initialize
+    initialize,
+    getMainWindow,
+    openSilverCompanionOpsGroup,
 };

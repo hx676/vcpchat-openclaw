@@ -1,31 +1,36 @@
 Option Explicit
 
-Dim WshShell, fso, projectPath, splashPath, vchatCommand, desktopCommand
-Dim readyFilePath, waitCount
+Dim WshShell, fso, projectPath, splashPath, electronCmdPath, vchatCommand, desktopCommand
+Dim vchatLogPath, desktopLogPath
+Dim readyFilePath, waitCount, bootstrapCommand
 
-' 获取脚本所在的目录（假设 .vbs 文件在项目根目录）
 Set fso = CreateObject("Scripting.FileSystemObject")
 projectPath = fso.GetParentFolderName(WScript.ScriptFullName)
 splashPath = """" & projectPath & "\NativeSplash.exe"""
 readyFilePath = projectPath & "\.vcp_ready"
-
-' 构建 VChat 主程序启动命令
-vchatCommand = "cmd /c cd /d """ & projectPath & """ && npx electron ."
-
-' 构建 V桌面启动命令（作为第二实例，附带 --desktop-only 参数）
-desktopCommand = "cmd /c cd /d """ & projectPath & """ && npx electron . --desktop-only"
+electronCmdPath = projectPath & "\node_modules\.bin\electron.cmd"
+vchatLogPath = projectPath & "\AppData\launch-vchat.log"
+desktopLogPath = projectPath & "\AppData\launch-desktop.log"
 
 Set WshShell = CreateObject("WScript.Shell")
 
-' 第一步：启动启动动画（NativeSplash.exe）
-WshShell.Run splashPath, 0, False
+If Not fso.FileExists(electronCmdPath) Then
+    MsgBox "Local Electron dependencies were not found." & vbCrLf & _
+        "A visible install window will open now." & vbCrLf & _
+        "VChat and the desktop module will relaunch automatically after npm install completes.", vbInformation, "VCPChat"
+    bootstrapCommand = "cmd /c cd /d """ & projectPath & """ && call ensure-node-deps.bat && wscript.exe """ & WScript.ScriptFullName & """"
+    WshShell.Run bootstrapCommand, 1, False
+    Set fso = Nothing
+    Set WshShell = Nothing
+    WScript.Quit 1
+End If
 
-' 第二步：启动 VChat 主程序
+vchatCommand = "cmd /c chcp 65001 >nul && cd /d """ & projectPath & """ && """ & electronCmdPath & """ . 1>>""" & vchatLogPath & """ 2>&1"
+desktopCommand = "cmd /c chcp 65001 >nul && cd /d """ & projectPath & """ && """ & electronCmdPath & """ . --desktop-only 1>>""" & desktopLogPath & """ 2>&1"
+
+WshShell.Run splashPath, 0, False
 WshShell.Run vchatCommand, 0, False
 
-' 第三步：等待 VChat 主窗口准备就绪
-' 主窗口 ready-to-show 时会创建 .vcp_ready 文件作为信号
-' 轮询检测该文件，最多等待 60 秒
 waitCount = 0
 Do While waitCount < 120
     WScript.Sleep 500
@@ -35,13 +40,9 @@ Do While waitCount < 120
     End If
 Loop
 
-' 额外等待 2 秒，确保主进程完全初始化（IPC 注册等）
 WScript.Sleep 2000
-
-' 第四步：启动 V桌面
 WshShell.Run desktopCommand, 0, False
 
 Set fso = Nothing
 Set WshShell = Nothing
-
 WScript.Quit

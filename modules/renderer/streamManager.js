@@ -1212,36 +1212,30 @@ export async function finalizeStreamedMessage(messageId, finishReason, context, 
     
     messageInitializationStatus.set(messageId, 'finalized');
     
-    // Get the stored context for this message
-    const storedContext = messageContextMap.get(messageId) || context;
-    if (!storedContext) {
-        console.error(`[StreamManager] No context available for message ${messageId}`);
-        return;
-    }
-    
+    try {
     const { chatMessagesDiv, markedInstance, uiHelper } = refs;
-    const isForCurrentView = isMessageForCurrentView(storedContext);
-    
-    // Get the correct history
-    let historyForThisMessage;
-    // For assistant chat, always use the in-memory history from the ref
-    if (storedContext.topicId === 'assistant_chat' || storedContext.topicId?.startsWith('voicechat_')) {
-        historyForThisMessage = refs.currentChatHistoryRef.get();
-    } else {
-        // For all other chats, always fetch the latest history from the source of truth
-        // to avoid race conditions with the UI state (currentChatHistoryRef).
-        historyForThisMessage = await getHistoryForContext(storedContext);
-        if (!historyForThisMessage) {
-            console.error(`[StreamManager] Could not load history for finalization`, storedContext);
-            return;
-        }
+
+    // Resolve context with fallbacks so finalize never hard-fails.
+    const cachedContext = messageContextMap.get(messageId) || {};
+    const mergedContext = { ...cachedContext, ...(context || {}) };
+    const currentSelectedItem = refs.currentSelectedItemRef.get();
+    const storedContext = {
+        ...mergedContext,
+        topicId: mergedContext.topicId || refs.currentTopicIdRef.get(),
+        agentId: mergedContext.agentId || (!mergedContext.groupId ? currentSelectedItem?.id : undefined),
+        isGroupMessage: mergedContext.isGroupMessage === true
+    };
+
+    if (!storedContext.topicId || (!storedContext.agentId && !storedContext.groupId)) {
+        console.warn(`[StreamManager] Missing context while finalizing ${messageId}, fallback to in-memory history.`);
     }
+
+    const isForCurrentView = isMessageForCurrentView(storedContext);
     
     // Find and update the message
     const accumulatedText = accumulatedStreamText.get(messageId) || "";
     const payloadFullResponse = typeof finalPayload?.fullResponse === 'string' ? finalPayload.fullResponse : "";
     const payloadError = typeof finalPayload?.error === 'string' ? finalPayload.error.trim() : "";
-    const streamedTextIsUsable = accumulatedText.trim() !== "" && !isThinkingPlaceholderText(accumulatedText);
     const payloadResponseIsUsable = payloadFullResponse.trim() !== "" && !isThinkingPlaceholderText(payloadFullResponse);
 
     let finalFullText = accumulatedText;
@@ -1259,30 +1253,71 @@ export async function finalizeStreamedMessage(messageId, finishReason, context, 
             finalFullText = "";
         }
     }
-    const messageIndex = historyForThisMessage.findIndex(msg => msg.id === messageId);
-    
-    if (messageIndex === -1) {
-        // If it's an assistant chat and the message is not found,
-        // it's likely the window was reset. Ignore gracefully.
-        if (storedContext && storedContext.topicId === 'assistant_chat') {
-            console.warn(`[StreamManager] Message ${messageId} not found in assistant history, likely due to reset. Ignoring.`);
-            // Clean up just in case
-            streamingChunkQueues.delete(messageId);
-            accumulatedStreamText.delete(messageId);
-            return;
+    if (!finalFullText && finishReason === 'completed') {
+        finalFullText = '[System] Empty response received.';
+    }
+
+    const inMemoryHistory = Array.isArray(refs.currentChatHistoryRef.get())
+        ? [...refs.currentChatHistoryRef.get()]
+        : [];
+    const inMemoryHasMessage = inMemoryHistory.some(msg => msg?.id === messageId);
+    const shouldPreferMemory =
+        storedContext.topicId === 'assistant_chat' ||
+        storedContext.topicId?.startsWith('voicechat_') ||
+        isForCurrentView;
+
+    let historyForThisMessage = shouldPreferMemory ? inMemoryHistory : null;
+
+    // For background chats, or when the message is not yet in memory, try disk history.
+    if ((!shouldPreferMemory || !inMemoryHasMessage) && storedContext.topicId && (storedContext.agentId || storedContext.groupId)) {
+        const diskHistory = await getHistoryForContext(storedContext);
+        if (Array.isArray(diskHistory)) {
+            const diskHasMessage = diskHistory.some(msg => msg?.id === messageId);
+            if (!historyForThisMessage || diskHasMessage || !inMemoryHasMessage) {
+                historyForThisMessage = diskHistory;
+            }
         }
-        console.error(`[StreamManager] Message ${messageId} not found in history`, storedContext);
-        return;
+    }
+
+    if (!Array.isArray(historyForThisMessage)) {
+        historyForThisMessage = inMemoryHistory;
+    }
+
+    let messageIndex = historyForThisMessage.findIndex(msg => msg?.id === messageId);
+
+    // Avoid short-response race: placeholder may still be only in memory.
+    if (messageIndex === -1 && inMemoryHasMessage && historyForThisMessage !== inMemoryHistory) {
+        historyForThisMessage = inMemoryHistory;
+        messageIndex = historyForThisMessage.findIndex(msg => msg?.id === messageId);
+    }
+
+    // Final fallback: create the message so stream can always finalize.
+    if (messageIndex === -1) {
+        historyForThisMessage.push({
+            id: messageId,
+            role: 'assistant',
+            name: storedContext.agentName || 'AI',
+            agentId: storedContext.agentId,
+            groupId: storedContext.groupId,
+            isGroupMessage: storedContext.isGroupMessage === true,
+            avatarUrl: storedContext.avatarUrl,
+            avatarColor: storedContext.avatarColor,
+            timestamp: Date.now(),
+            content: '',
+            isThinking: false
+        });
+        messageIndex = historyForThisMessage.length - 1;
+        console.warn(`[StreamManager] Recovered missing message ${messageId} during finalize.`);
     }
     
     const message = historyForThisMessage[messageIndex];
     message.content = finalFullText;
     message.finishReason = finishReason;
     message.isThinking = false;
-    if (message.isGroupMessage && storedContext) {
-        message.name = storedContext.agentName || message.name;
-        message.agentId = storedContext.agentId || message.agentId;
-    }
+    message.name = storedContext.agentName || message.name;
+    message.agentId = storedContext.agentId || message.agentId;
+    message.groupId = storedContext.groupId || message.groupId;
+    message.isGroupMessage = storedContext.isGroupMessage === true;
     
     // Update UI if it's the current view
     if (isForCurrentView) {
@@ -1341,9 +1376,19 @@ export async function finalizeStreamedMessage(messageId, finishReason, context, 
     }
     
     // 🟢 使用防抖保存
-    if (storedContext.topicId !== 'assistant_chat') {
+    if (storedContext.topicId && storedContext.topicId !== 'assistant_chat' && !storedContext.topicId.startsWith('voicechat_')) {
         debouncedSaveHistory(storedContext, historyForThisMessage);
     }
+    } catch (error) {
+        console.error(`[StreamManager] finalizeStreamedMessage failed for ${messageId}:`, error);
+    }
+
+    // Always clear visual thinking/streaming state to avoid a stuck UI.
+    const fallbackMessageItem = refs.chatMessagesDiv?.querySelector(`.message-item[data-message-id="${messageId}"]`);
+    if (fallbackMessageItem) {
+        fallbackMessageItem.classList.remove('streaming', 'thinking');
+    }
+    window.updateSendButtonState?.();
     
     // Cleanup
     streamingChunkQueues.delete(messageId);

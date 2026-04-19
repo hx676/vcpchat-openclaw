@@ -145,6 +145,12 @@ window.topicListManager = (() => {
             itemConfigFull = await electronAPI.getAgentConfig(currentSelectedItem.id);
         } else if (currentSelectedItem.type === 'group') {
             itemConfigFull = await electronAPI.getAgentGroupConfig(currentSelectedItem.id);
+        } else if (currentSelectedItem.type === 'channel_mirror') {
+            itemConfigFull = {
+                id: currentSelectedItem.id,
+                topics: await electronAPI.getChannelMirrorTopics(currentSelectedItem.id),
+                readOnly: true
+            };
         }
 
         if (itemConfigFull && !itemConfigFull.error) {
@@ -178,11 +184,13 @@ window.topicListManager = (() => {
 
                 let contentMatchedTopicIds = [];
                 try {
-                    const contentSearchResult = await electronAPI.searchTopicsByContent(currentSelectedItem.id, currentSelectedItem.type, searchTerm);
-                    if (contentSearchResult && contentSearchResult.success && Array.isArray(contentSearchResult.matchedTopicIds)) {
-                        contentMatchedTopicIds = contentSearchResult.matchedTopicIds;
-                    } else if (contentSearchResult && !contentSearchResult.success) {
-                        console.warn("Topic content search failed:", contentSearchResult.error);
+                    if (currentSelectedItem.type !== 'channel_mirror') {
+                        const contentSearchResult = await electronAPI.searchTopicsByContent(currentSelectedItem.id, currentSelectedItem.type, searchTerm);
+                        if (contentSearchResult && contentSearchResult.success && Array.isArray(contentSearchResult.matchedTopicIds)) {
+                            contentMatchedTopicIds = contentSearchResult.matchedTopicIds;
+                        } else if (contentSearchResult && !contentSearchResult.success) {
+                            console.warn("Topic content search failed:", contentSearchResult.error);
+                        }
                     }
                 } catch (e) {
                     console.error("Error calling searchTopicsByContent:", e);
@@ -195,7 +203,11 @@ window.topicListManager = (() => {
             }
 
             if (topicsToProcess.length === 0) {
-                topicListUl.innerHTML = `<li><p>${itemNameForLoading} 还没有任何话题${searchTerm ? '匹配当前搜索' : ''}。您可以点击上方的“新建${currentSelectedItem.type === 'group' ? '群聊话题' : '聊天话题'}”按钮创建一个。</p></li>`;
+                if (currentSelectedItem.type === 'channel_mirror') {
+                    topicListUl.innerHTML = `<li><p>${itemNameForLoading} 当前还没有可展示的镜像话题${searchTerm ? '，或没有匹配当前搜索' : ''}。</p></li>`;
+                } else {
+                    topicListUl.innerHTML = `<li><p>${itemNameForLoading} 还没有任何话题${searchTerm ? '匹配当前搜索' : ''}。您可以点击上方的“新建${currentSelectedItem.type === 'group' ? '群聊话题' : '聊天话题'}”按钮创建一个。</p></li>`;
+                }
             } else {
                 topicListUl.innerHTML = '';
                 const currentTopicId = currentTopicIdRef.get();
@@ -306,10 +318,12 @@ window.topicListManager = (() => {
                             }
                         });
 
-                        li.addEventListener('contextmenu', (e) => {
-                            e.preventDefault();
-                            showTopicContextMenu(e, li, itemConfigFull, topic, currentSelectedItem.type);
-                        });
+                        if (currentSelectedItem.type !== 'channel_mirror') {
+                            li.addEventListener('contextmenu', (e) => {
+                                e.preventDefault();
+                                showTopicContextMenu(e, li, itemConfigFull, topic, currentSelectedItem.type);
+                            });
+                        }
                         fragment.appendChild(li);
                     }
 
@@ -320,7 +334,7 @@ window.topicListManager = (() => {
                         requestAnimationFrame(renderBatch);
                     } else {
                         // 渲染完成后初始化排序
-                        if (currentSelectedItem.id && topicsToProcess.length > 0 && typeof Sortable !== 'undefined') {
+                        if (currentSelectedItem.type !== 'channel_mirror' && currentSelectedItem.id && topicsToProcess.length > 0 && typeof Sortable !== 'undefined') {
                             initializeTopicSortable(currentSelectedItem.id, currentSelectedItem.type);
                         }
                     }
@@ -329,7 +343,7 @@ window.topicListManager = (() => {
                 // 开始第一批渲染
                 renderBatch();
             }
-            if (currentSelectedItem.id && topicsToProcess && topicsToProcess.length > 0 && typeof Sortable !== 'undefined') {
+            if (currentSelectedItem.type !== 'channel_mirror' && currentSelectedItem.id && topicsToProcess && topicsToProcess.length > 0 && typeof Sortable !== 'undefined') {
                 initializeTopicSortable(currentSelectedItem.id, currentSelectedItem.type);
             }
         }

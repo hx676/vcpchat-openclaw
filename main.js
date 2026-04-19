@@ -1,5 +1,64 @@
 // main.js - Electron 主窗口
 
+// --- StdIO EPIPE Guard ---
+// When launched from hidden VBS wrappers, stdout/stderr may become unavailable.
+// Guard console writes so a broken pipe does not crash the Electron main process.
+const nativeFsForStdIoGuard = require('fs');
+const nativePathForStdIoGuard = require('path');
+
+function isIgnorableStdIoError(error) {
+    if (!error) return false;
+    const code = String(error.code || '').toUpperCase();
+    const msg = String(error.message || '').toLowerCase();
+    return code === 'EPIPE' || code === 'ERR_STREAM_DESTROYED' || msg.includes('broken pipe');
+}
+
+function appendStdIoGuardLog(streamName, error) {
+    try {
+        const appDataDir = nativePathForStdIoGuard.join(__dirname, 'AppData');
+        nativeFsForStdIoGuard.mkdirSync(appDataDir, { recursive: true });
+        const logPath = nativePathForStdIoGuard.join(appDataDir, 'stdio-guard.log');
+        const text = `[${new Date().toISOString()}] ${streamName} error: ${error?.stack || error}\n`;
+        nativeFsForStdIoGuard.appendFileSync(logPath, text, 'utf8');
+    } catch {
+        // Intentionally swallow: no stable sink is guaranteed at this point.
+    }
+}
+
+function installStdIoGuards() {
+    const wrapConsoleMethod = (name) => {
+        const original = console[name];
+        if (typeof original !== 'function') return;
+        console[name] = (...args) => {
+            try {
+                original.apply(console, args);
+            } catch (error) {
+                if (!isIgnorableStdIoError(error)) {
+                    appendStdIoGuardLog(`console.${name}`, error);
+                }
+            }
+        };
+    };
+
+    wrapConsoleMethod('log');
+    wrapConsoleMethod('info');
+    wrapConsoleMethod('warn');
+    wrapConsoleMethod('error');
+
+    const attach = (name, stream) => {
+        if (!stream || typeof stream.on !== 'function') return;
+        stream.on('error', (error) => {
+            if (isIgnorableStdIoError(error)) return;
+            appendStdIoGuardLog(name, error);
+        });
+    };
+
+    attach('stdout', process.stdout);
+    attach('stderr', process.stderr);
+}
+
+installStdIoGuards();
+
 // --- 模块加载性能诊断 ---
 const originalRequire = require;
 require = function (id) {
@@ -38,12 +97,22 @@ const themeHandlers = require('./modules/ipc/themeHandlers'); // Import theme ha
 const emoticonHandlers = require('./modules/ipc/emoticonHandlers'); // Import emoticon handlers
 const forumHandlers = require('./modules/ipc/forumHandlers'); // Import forum handlers
 const memoHandlers = require('./modules/ipc/memoHandlers'); // Import memo handlers
+let creditHandlers = null;
+try {
+    creditHandlers = require('./modules/ipc/creditHandlers'); // Optional: credit workspace handlers
+} catch (error) {
+    console.warn('[Main] Credit workspace module not found, skipping credit initialization:', error?.message || error);
+}
+const gatewayHandlers = require('./modules/ipc/gatewayHandlers'); // Import model gateway handlers
+const channelMirrorHandlers = require('./modules/ipc/channelMirrorHandlers'); // Import channel mirror handlers
 const ragHandlers = require('./modules/ipc/ragHandlers'); // Import RAG handlers
 // speechRecognizer is now lazy-loaded
 const canvasHandlers = require('./modules/ipc/canvasHandlers'); // Import canvas handlers
 const desktopHandlers = require('./modules/ipc/desktopHandlers'); // Import VCPdesktop handlers
 const desktopRemoteHandlers = require('./modules/ipc/desktopRemoteHandlers'); // Import desktop remote control handlers
 const { PRELOAD_ROLES, resolveProjectPreload } = require('./modules/services/preloadPaths');
+const { resolveVcpApiKey, resolveVcpLogKey } = require('./modules/utils/vcpKeyResolver');
+const { fetchOllamaDisplayModels } = require('./modules/utils/modelRouting');
 // chokidar is now lazy-loaded
 
 // --- File Watcher ---
@@ -147,6 +216,17 @@ let translatorWindow = null; // To hold the single instance of the translator wi
 let appSettingsManager = null;
 let networkNotesTreeCache = null; // In-memory cache for the network notes
 let cachedModels = []; // Cache for models fetched from VCP server
+const VERIFIED_DISPLAY_MODEL_IDS = new Set([
+    'gpt-5.4',
+    'gpt-5.4-mini',
+    'gpt-5.2',
+    'gpt-5.3-codex',
+    'claude-sonnet-4-6',
+    'claude-opus-4-6-thinking',
+    'gemini-3-flash',
+    'gemini-3.1-flash-image',
+    'gpt-oss-120b-medium',
+]);
 const NOTES_MODULE_DIR = path.join(APP_DATA_ROOT_IN_PROJECT, 'Notemodules');
 const isRagObserverOnlyMode = process.argv.includes('--rag-observer-only');
 const isAutoOpenDesktop = process.argv.includes('--desktop-only');
@@ -154,6 +234,58 @@ let audioEngineStopPromise = null;
 let isAudioEngineStopping = false;
 let appQuitCleanupPromise = null;
 let isFinalizingQuit = false;
+
+function filterDisplayableModels(models) {
+    if (!Array.isArray(models)) {
+        return [];
+    }
+
+    return models.filter((model) => {
+        const modelId = typeof model === 'string' ? model : model?.id;
+        return VERIFIED_DISPLAY_MODEL_IDS.has(String(modelId || '').trim());
+    });
+}
+
+function getEffectiveVcpLogKey(wsUrl, configuredKey) {
+    const resolution = resolveVcpLogKey({
+        projectRoot: PROJECT_ROOT,
+        wsUrl,
+        configuredKey,
+    });
+
+    if (resolution.source === 'local-toolbox-config') {
+        console.log(`[Main] Using VCP_Key from local toolbox config: ${resolution.configPath}`);
+    }
+
+    return resolution;
+}
+
+function getEffectiveVcpApiKey(vcpUrl, configuredKey) {
+    const resolution = resolveVcpApiKey({
+        projectRoot: PROJECT_ROOT,
+        vcpUrl,
+        configuredKey,
+    });
+
+    if (resolution.source === 'local-toolbox-config') {
+        console.log(`[Main] Using local VCP API key from ${resolution.configPath}`);
+    }
+
+    return resolution;
+}
+
+async function persistResolvedVcpLogKeyIfNeeded(configuredKey, effectiveKey) {
+    if (!appSettingsManager || !effectiveKey || configuredKey === effectiveKey) {
+        return;
+    }
+
+    try {
+        await appSettingsManager.updateSettings({ vcpLogKey: effectiveKey });
+        console.log('[Main] Persisted resolved VCPLog key into settings.json');
+    } catch (error) {
+        console.warn('[Main] Failed to persist resolved VCPLog key:', error.message);
+    }
+}
 
 // --- Audio Engine Management ---
 // Now uses the Rust native audio engine instead of Python
@@ -546,6 +678,7 @@ if (!gotTheLock) {
         // 默认聚焦主窗口
         if (mainWindow && !mainWindow.isDestroyed()) {
             if (mainWindow.isMinimized()) mainWindow.restore();
+            if (!mainWindow.isVisible()) mainWindow.show();
             mainWindow.focus();
             return;
         }
@@ -634,11 +767,12 @@ if (!gotTheLock) {
             try {
                 const settings = await appSettingsManager.readSettings();
                 const vcpServerUrl = settings.vcpServerUrl;
-                const vcpApiKey = settings.vcpApiKey; // Get the API key
+                const vcpApiKey = getEffectiveVcpApiKey(vcpServerUrl, settings.vcpApiKey).effectiveKey;
 
                 if (!vcpServerUrl) {
                     console.warn('[Main] VCP Server URL is not configured. Cannot fetch models.');
-                    cachedModels = []; // Clear cache if URL is not set
+                    cachedModels = await fetchOllamaDisplayModels();
+                    console.log('[Main] Using Ollama-only model list:', cachedModels.map(m => m.id));
                     return;
                 }
                 // Correctly construct the base URL by removing known API paths.
@@ -656,11 +790,19 @@ if (!gotTheLock) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const data = await response.json();
-                cachedModels = data.data || []; // Assuming the response has a 'data' field containing the models array
-                console.log('[Main] Models fetched and cached successfully:', cachedModels.map(m => m.id));
+                const fetchedModels = data.data || []; // Assuming the response has a 'data' field containing the models array
+                const vcpModels = filterDisplayableModels(fetchedModels);
+                const ollamaModels = await fetchOllamaDisplayModels();
+                cachedModels = [...vcpModels, ...ollamaModels];
+                console.log('[Main] Models fetched and cached successfully:', fetchedModels.map(m => m.id));
+                if (ollamaModels.length > 0) {
+                    console.log('[Main] Ollama models discovered:', ollamaModels.map(m => m.id));
+                }
+                console.log('[Main] Models filtered for display:', cachedModels.map(m => m.id));
             } catch (error) {
                 console.error('[Main] Failed to fetch and cache models:', error);
-                cachedModels = []; // Clear cache on error
+                cachedModels = await fetchOllamaDisplayModels();
+                console.log('[Main] Falling back to Ollama-only model list:', cachedModels.map(m => m.id));
             }
         }
 
@@ -916,7 +1058,7 @@ if (!gotTheLock) {
             }
 
             const vcpServerUrl = settings.vcpServerUrl || '';
-            const vcpApiKey = settings.vcpApiKey || '';
+            const vcpApiKey = getEffectiveVcpApiKey(vcpServerUrl, settings.vcpApiKey || '').effectiveKey || '';
 
             const translatorUrl = `file://${path.join(__dirname, 'Translatormodules', 'translator.html')}?vcpServerUrl=${encodeURIComponent(vcpServerUrl)}&vcpApiKey=${encodeURIComponent(vcpApiKey)}`;
             console.log(`[Main Process] Attempting to load URL in translator window: ${translatorUrl.substring(0, 200)}...`);
@@ -976,6 +1118,11 @@ if (!gotTheLock) {
         windowHandlers.initialize(mainWindow, openChildWindows);
         forumHandlers.initialize({ USER_DATA_DIR }); // Initialize forum handlers
         memoHandlers.initialize({ USER_DATA_DIR }); // Initialize memo handlers
+        channelMirrorHandlers.initialize({ PROJECT_ROOT });
+        if (creditHandlers && typeof creditHandlers.initialize === 'function') {
+            creditHandlers.initialize({ USER_DATA_DIR, APP_DATA_ROOT_IN_PROJECT, SETTINGS_FILE }); // Initialize credit workspace handlers
+        }
+        gatewayHandlers.initialize({ PROJECT_ROOT, SETTINGS_FILE }); // Initialize model gateway handlers
         
         // ⚠️ agentHandlers 必须在 assistantHandlers 之前初始化
         // 因为 assistantHandlers 依赖 getAgentConfigById 函数，该函数需要 AGENT_DIR_CACHE 已被初始化
@@ -1001,6 +1148,8 @@ if (!gotTheLock) {
         groupChatHandlers.initialize(mainWindow, {
             AGENT_DIR,
             USER_DATA_DIR,
+            APP_DATA_ROOT_IN_PROJECT,
+            PROJECT_ROOT,
             getSelectionListenerStatus: assistantHandlers.getSelectionListenerStatus,
             stopSelectionListener: assistantHandlers.stopSelectionListener,
             startSelectionListener: assistantHandlers.startSelectionListener,
@@ -1065,9 +1214,11 @@ if (!gotTheLock) {
                 if (settings.enableDistributedServer) {
                     console.log('[Main] Distributed server is enabled. Initializing...');
                     const DistributedServer = require('./VCPDistributedServer/VCPDistributedServer.js');
+                    const vcpKeyResolution = getEffectiveVcpLogKey(settings.vcpLogUrl, settings.vcpLogKey);
+                    await persistResolvedVcpLogKeyIfNeeded(settings.vcpLogKey, vcpKeyResolution.effectiveKey);
                     const config = {
                         mainServerUrl: settings.vcpLogUrl, // Assuming the distributed server connects to the same base URL as VCPLog
-                        vcpKey: settings.vcpLogKey,
+                        vcpKey: vcpKeyResolution.effectiveKey,
                         serverName: 'VCP-Desktop-Client-Distributed-Server',
                         debugMode: true, // Or read from settings if you add this option
                         rendererProcess: mainWindow.webContents, // Pass the renderer process object
@@ -1271,12 +1422,15 @@ if (!gotTheLock) {
     // VCPLog WebSocket Connection
     function connectVcpLog(wsUrl, wsKey) {
         const WebSocket = require('ws'); // Lazy load
-        if (!wsUrl || !wsKey) {
+        const vcpKeyResolution = getEffectiveVcpLogKey(wsUrl, wsKey);
+        const effectiveWsKey = vcpKeyResolution.effectiveKey;
+        void persistResolvedVcpLogKeyIfNeeded(wsKey, effectiveWsKey);
+        if (!wsUrl || !effectiveWsKey) {
             if (mainWindow) mainWindow.webContents.send('vcp-log-status', { source: 'VCPLog', status: 'error', message: 'URL或KEY未配置。' });
             return;
         }
 
-        const fullWsUrl = `${wsUrl}/VCPlog/VCP_Key=${wsKey}`;
+        const fullWsUrl = `${wsUrl}/VCPlog/VCP_Key=${effectiveWsKey}`;
 
         if (vcpLogWebSocket && (vcpLogWebSocket.readyState === WebSocket.OPEN || vcpLogWebSocket.readyState === WebSocket.CONNECTING)) {
             console.log('VCPLog WebSocket 已连接或正在连接。');
@@ -1318,11 +1472,11 @@ if (!gotTheLock) {
         vcpLogWebSocket.onclose = (event) => {
             console.log('VCPLog WebSocket 连接已关闭:', event.code, event.reason);
             if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('vcp-log-status', { source: 'VCPLog', status: 'closed', message: `连接已断开 (${event.code})` });
-            if (!vcpLogReconnectInterval && wsUrl && wsKey) {
+            if (!vcpLogReconnectInterval && wsUrl && effectiveWsKey) {
                 console.log('将在5秒后尝试重连 VCPLog...');
                 vcpLogReconnectInterval = setTimeout(() => {
                     vcpLogReconnectInterval = null;
-                    connectVcpLog(wsUrl, wsKey);
+                    connectVcpLog(wsUrl, effectiveWsKey);
                 }, 5000);
             }
         };
@@ -1475,8 +1629,26 @@ ipcMain.handle('export-topic-as-markdown', async (event, exportData) => {
 });
 
 // --- Group Chat Interrupt Handler ---
-ipcMain.handle('interrupt-group-request', (event, messageId) => {
+ipcMain.handle('interrupt-group-request', async (event, messageId) => {
     console.log(`[Main] Received interrupt-group-request for messageId: ${messageId}`);
+    const isSilverCompanionManagedMessage = String(messageId || '').startsWith('msg_sc_');
+    if (groupChatHandlers && typeof groupChatHandlers.getSilverCompanionSessionManager === 'function') {
+        try {
+            const sessionManager = groupChatHandlers.getSilverCompanionSessionManager(PROJECT_ROOT);
+            if (sessionManager && typeof sessionManager.interruptManagedGroupRequest === 'function') {
+                const managedResult = await sessionManager.interruptManagedGroupRequest(messageId);
+                if (managedResult && managedResult.success) {
+                    return managedResult;
+                }
+                if (isSilverCompanionManagedMessage) {
+                    return managedResult;
+                }
+            }
+        } catch (error) {
+            console.warn('[Main] Managed group interrupt fallback failed:', error);
+        }
+    }
+
     if (groupChat && typeof groupChat.interruptGroupRequest === 'function') {
         return groupChat.interruptGroupRequest(messageId);
     } else {

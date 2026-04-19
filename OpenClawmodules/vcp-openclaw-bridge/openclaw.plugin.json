@@ -1,0 +1,57 @@
+{
+  "id": "vcp-openclaw-bridge",
+  "name": "VCP OpenClaw Bridge",
+  "description": "Bridges OpenClaw sessions to VCP tools, memory search, and channel mirror storage.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "baseUrl": {
+        "type": "string"
+      },
+      "token": {
+        "type": "string"
+      },
+      "mirrorChannel": {
+        "type": "string"
+      },
+      "mirrorChannels": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "enableMirror": {
+        "type": "boolean"
+      },
+      "enableTools": {
+        "type": "boolean"
+      }
+    }
+  },
+  "uiHints": {
+    "baseUrl": {
+      "label": "VCP Integration Base URL",
+      "placeholder": "http://127.0.0.1:6005/v1/integrations/openclaw"
+    },
+    "token": {
+      "label": "Shared token",
+      "placeholder": "same value as OPENCLAW_VCP_SHARED_TOKEN",
+      "sensitive": true
+    },
+    "mirrorChannel": {
+      "label": "Mirrored channel id",
+      "placeholder": "feishu"
+    },
+    "mirrorChannels": {
+      "label": "Mirrored channel ids",
+      "placeholder": "[\"openclaw-weixin\", \"feishu\"]"
+    },
+    "enableMirror": {
+      "label": "Enable session mirror"
+    },
+    "enableTools": {
+      "label": "Enable VCP tools"
+    }
+  }
+}

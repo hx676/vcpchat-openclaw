@@ -68,6 +68,13 @@ class AgentConfigManager extends EventEmitter {
         await fs.remove(lockFile).catch(() => { });
     }
 
+    stripUtf8Bom(content) {
+        if (typeof content !== 'string') {
+            return content;
+        }
+        return content.charCodeAt(0) === 0xFEFF ? content.slice(1) : content;
+    }
+
     async readAgentConfig(agentId, { allowDefault = false, retryCount = 0 } = {}) {
         const id = this.normalizeId(agentId);
         const { configPath } = this.getAgentPaths(id);
@@ -83,7 +90,11 @@ class AgentConfigManager extends EventEmitter {
                 return { ...cachedConfig };
             }
 
-            const content = await fs.readFile(configPath, 'utf8');
+            const rawContent = await fs.readFile(configPath, 'utf8');
+            const content = this.stripUtf8Bom(rawContent);
+            if (content !== rawContent) {
+                console.warn(`Agent ${id} config contained UTF-8 BOM, normalized before parsing`);
+            }
             if (!content.trim()) {
                 throw new Error('CONFIG_EMPTY');
             }
@@ -119,7 +130,11 @@ class AgentConfigManager extends EventEmitter {
             const backupPath = configPath + '.backup';
             if (await fs.pathExists(backupPath)) {
                 try {
-                    const backupContent = await fs.readFile(backupPath, 'utf8');
+                    const rawBackupContent = await fs.readFile(backupPath, 'utf8');
+                    const backupContent = this.stripUtf8Bom(rawBackupContent);
+                    if (backupContent !== rawBackupContent) {
+                        console.warn(`Agent ${id} backup config contained UTF-8 BOM, normalized before parsing`);
+                    }
                     const backupConfig = JSON.parse(backupContent);
 
                     // 只要备份有效且看起来不是完全空的（ID匹配即可视为有效）

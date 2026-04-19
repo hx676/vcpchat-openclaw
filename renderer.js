@@ -114,6 +114,7 @@ const deleteItemBtn = document.getElementById('deleteAgentBtn'); // Will be dele
 const currentItemActionBtn = document.getElementById('currentAgentSettingsBtn'); // Text will change (e.g. "New Topic" / "New Group Topic")
 const clearCurrentChatBtn = document.getElementById('clearCurrentChatBtn');
 const openForumBtn = document.getElementById('openForumBtn');
+const openSilverCompanionBtn = document.getElementById('openSilverCompanionBtn');
 const themeToggleBtn = document.getElementById('themeToggleBtn');
 const toggleNotificationsBtn = document.getElementById('toggleNotificationsBtn');
 
@@ -397,6 +398,7 @@ import { setupEventListeners } from './modules/event-listeners.js';
                 updateAttachmentPreview: () => uiHelperFunctions.updateAttachmentPreview(attachedFiles, attachmentPreviewArea),
                 setCroppedFile: uiHelperFunctions.setCroppedFile,
                 getCroppedFile: uiHelperFunctions.getCroppedFile,
+                getCurrentChatHistory: () => currentChatHistory,
                 setCurrentChatHistory: (history) => currentChatHistory = history,
                 displayTopicTimestampBubble: (itemId, itemType, topicId) => {
                     if (window.chatManager) {
@@ -960,7 +962,12 @@ import { setupEventListeners } from './modules/event-listeners.js';
                 attachFileBtn: attachFileBtn,
             },
             mainRendererFunctions: {
-                displaySettingsForItem: () => window.settingsManager.displaySettingsForItem(),
+                displaySettingsForItem: () => {
+                    if (window.settingsManager && typeof window.settingsManager.displaySettingsForItem === 'function') {
+                        return window.settingsManager.displaySettingsForItem();
+                    }
+                    console.warn('[Renderer] settingsManager.displaySettingsForItem is not available yet.');
+                },
                 updateAttachmentPreview: () => uiHelperFunctions.updateAttachmentPreview(attachedFiles, attachmentPreviewArea),
                 // This is no longer needed as chatManager will call messageRenderer's summarizer
             }
@@ -1035,7 +1042,7 @@ import { setupEventListeners } from './modules/event-listeners.js';
         });
 
         // Pre-warm PromptManager to avoid first-click delay (Singleton Pattern)
-        if (window.settingsManager.prewarmPromptManager) {
+        if (window.settingsManager && window.settingsManager.prewarmPromptManager) {
             window.settingsManager.prewarmPromptManager();
         }
     } else {
@@ -1095,6 +1102,8 @@ import { setupEventListeners } from './modules/event-listeners.js';
             notificationsSidebar, agentSearchInput, minimizeToTrayBtn, leftSidebar,
             openTranslatorBtn: document.getElementById('openTranslatorBtn'),
             openNotesBtn: document.getElementById('openNotesBtn'),
+            openGatewayBtn: document.getElementById('openGatewayBtn'),
+            openSilverCompanionBtn,
             openMusicBtn: document.getElementById('openMusicBtn'),
             openCanvasBtn: document.getElementById('openCanvasBtn'),
             toggleAssistantBtn,
@@ -1268,6 +1277,58 @@ import { setupEventListeners } from './modules/event-listeners.js';
             }
         }
     });
+
+    if (chatAPI.onOpenSilverCompanionOpsGroup) {
+        chatAPI.onOpenSilverCompanionOpsGroup(async ({ groupId, topicId }) => {
+            if (!groupId) {
+                return;
+            }
+
+            try {
+                if (window.itemListManager && typeof window.itemListManager.loadItems === 'function') {
+                    await window.itemListManager.loadItems();
+                }
+
+                const groupConfig = await chatAPI.getAgentGroupConfig(groupId);
+                if (!groupConfig || groupConfig.error) {
+                    uiHelperFunctions.showToastNotification('打开银发伴侣协作群失败：未找到群组。', 'error');
+                    return;
+                }
+
+                await window.chatManager.selectItem(
+                    groupId,
+                    'group',
+                    groupConfig.name || groupId,
+                    groupConfig.avatarUrl || 'assets/default_group_avatar.png',
+                    groupConfig
+                );
+
+                if (topicId && window.chatManager && typeof window.chatManager.selectTopic === 'function') {
+                    await window.chatManager.selectTopic(topicId);
+                }
+
+                uiHelperFunctions.showToastNotification('已打开当前老人群。', 'success');
+            } catch (error) {
+                console.error('[Renderer] Failed to open SilverCompanion ops group:', error);
+                uiHelperFunctions.showToastNotification(`打开当前老人群失败：${error.message}`, 'error');
+            }
+        });
+    }
+
+    if (chatAPI.onSilverCompanionOpsGroupHistoryUpdated) {
+        chatAPI.onSilverCompanionOpsGroupHistoryUpdated(({ groupId, topicId }) => {
+            if (
+                currentSelectedItem &&
+                currentSelectedItem.id === groupId &&
+                currentSelectedItem.type === 'group' &&
+                currentTopicId === topicId &&
+                window.chatManager &&
+                typeof window.chatManager.syncHistoryFromFile === 'function'
+            ) {
+                window.chatManager.syncHistoryFromFile(groupId, 'group', topicId);
+            }
+        });
+    }
 
     // --- Initialize Flowlock Module ---
     if (window.initializeFlowlockIntegration) {
@@ -1981,7 +2042,9 @@ async function syncGlobalSettingsToUI() {
     
     safeCheck('userUseThemeColorsInChat', globalSettings.userUseThemeColorsInChat);
     
-    const completedUrl = window.settingsManager.completeVcpUrl(globalSettings.vcpServerUrl || '');
+    const completedUrl = (window.settingsManager && typeof window.settingsManager.completeVcpUrl === 'function')
+        ? window.settingsManager.completeVcpUrl(globalSettings.vcpServerUrl || '')
+        : (globalSettings.vcpServerUrl || '');
     safeSet('vcpServerUrl', completedUrl);
     safeSet('vcpApiKey', globalSettings.vcpApiKey || '');
     safeSet('vcpLogUrl', globalSettings.vcpLogUrl || '');
@@ -2123,7 +2186,7 @@ async function syncGlobalSettingsToUI() {
 
     // Assistant Select
     const assistantAgentSelect = document.getElementById('assistantAgent');
-    if (assistantAgentSelect) {
+    if (assistantAgentSelect && window.settingsManager && typeof window.settingsManager.populateAssistantAgentSelect === 'function') {
         await window.settingsManager.populateAssistantAgentSelect();
         assistantAgentSelect.value = globalSettings.assistantAgent || '';
     }
@@ -2330,7 +2393,7 @@ function renderForwardTargetList(items) {
     const confirmBtn = document.getElementById('confirmForwardBtn');
     targetList.innerHTML = '';
 
-    items.forEach(item => {
+    items.filter(item => item.type === 'agent' || item.type === 'group').forEach(item => {
         const li = document.createElement('li');
         li.className = 'agent-item';
         li.dataset.id = item.id;

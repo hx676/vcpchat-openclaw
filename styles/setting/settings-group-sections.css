@@ -754,6 +754,14 @@ body:not(.light-theme) #groupSettingsForm .form-actions .danger-button {
     overflow: visible;
 }
 
+#agentSettingsForm .form-actions.always-show-delete .delete-button-container,
+#groupSettingsForm .form-actions.always-show-delete .delete-button-container {
+    max-height: 50px;
+    opacity: 1;
+    margin-top: 4px;
+    overflow: visible;
+}
+
 
 #agentSettingsForm .form-actions button,
 #groupSettingsForm .form-actions button {

@@ -2,6 +2,7 @@
 const { ipcMain } = require('electron');
 const fs = require('fs-extra');
 const path = require('path');
+const channelMirrorHandlers = require('./channelMirrorHandlers');
 
 let AGENT_DIR_CACHE; // Cache the agent directory path
 let USER_DATA_DIR_CACHE; // Cache the user data directory path
@@ -14,6 +15,82 @@ function invalidateCaches() {
     console.log('[agentHandlers] Invalidating agent caches.');
     cachedAgents = null;
     cachedMetadata = null;
+}
+
+function createPromptBlock(content = '') {
+    return {
+        id: `block_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+        type: 'text',
+        content: String(content || ''),
+        disabled: false
+    };
+}
+
+function buildPromptFromBlocks(blocks = []) {
+    if (!Array.isArray(blocks)) return '';
+    return blocks
+        .filter(block => block && !block.disabled)
+        .map(block => block.type === 'newline' ? '\n' : String(block.content || ''))
+        .join('');
+}
+
+function normalizePromptConfig(config) {
+    const normalized = { ...(config || {}) };
+    const basePrompt = String(normalized.originalSystemPrompt || normalized.systemPrompt || '');
+
+    if (!normalized.promptMode) {
+        if (normalized.advancedSystemPrompt) {
+            normalized.promptMode = 'modular';
+        } else if (normalized.presetSystemPrompt) {
+            normalized.promptMode = 'preset';
+        } else {
+            normalized.promptMode = 'modular';
+        }
+    }
+
+    if (normalized.promptMode === 'modular') {
+        if (!normalized.advancedSystemPrompt || typeof normalized.advancedSystemPrompt !== 'object' || Array.isArray(normalized.advancedSystemPrompt)) {
+            normalized.advancedSystemPrompt = {
+                blocks: basePrompt ? [createPromptBlock(basePrompt)] : [],
+                hiddenBlocks: { default: [] },
+                warehouseOrder: ['global', 'default'],
+                viewMode: false
+            };
+        } else {
+            if (!Array.isArray(normalized.advancedSystemPrompt.blocks)) {
+                normalized.advancedSystemPrompt.blocks = [];
+            }
+            if (normalized.advancedSystemPrompt.blocks.length === 0 && basePrompt) {
+                normalized.advancedSystemPrompt.blocks.push(createPromptBlock(basePrompt));
+            }
+            if (!normalized.advancedSystemPrompt.hiddenBlocks || typeof normalized.advancedSystemPrompt.hiddenBlocks !== 'object') {
+                normalized.advancedSystemPrompt.hiddenBlocks = { default: [] };
+            }
+            if (!Array.isArray(normalized.advancedSystemPrompt.hiddenBlocks.default)) {
+                normalized.advancedSystemPrompt.hiddenBlocks.default = [];
+            }
+            if (!Array.isArray(normalized.advancedSystemPrompt.warehouseOrder) || normalized.advancedSystemPrompt.warehouseOrder.length === 0) {
+                normalized.advancedSystemPrompt.warehouseOrder = ['global', 'default'];
+            }
+            if (typeof normalized.advancedSystemPrompt.viewMode !== 'boolean') {
+                normalized.advancedSystemPrompt.viewMode = false;
+            }
+        }
+
+        normalized.systemPrompt = buildPromptFromBlocks(normalized.advancedSystemPrompt.blocks);
+        if (!normalized.systemPrompt && basePrompt) normalized.systemPrompt = basePrompt;
+    } else if (normalized.promptMode === 'preset') {
+        normalized.systemPrompt = String(normalized.presetSystemPrompt || basePrompt);
+    } else {
+        normalized.promptMode = 'original';
+        normalized.systemPrompt = String(normalized.originalSystemPrompt || basePrompt);
+    }
+
+    if (!normalized.originalSystemPrompt) {
+        normalized.originalSystemPrompt = String(basePrompt || normalized.systemPrompt || '');
+    }
+
+    return normalized;
 }
 
 async function getAgentConfigById(agentId) {
@@ -151,6 +228,10 @@ function initialize(context) {
                         } catch (e) {
                             console.error(`Error reading regex_rules.json for agent ${folderName}:`, e);
                         }
+                    }
+
+                    if (config.hiddenFromMainList === true) {
+                        return null;
                     }
 
                     agentData.name = config.name || folderName;
@@ -451,6 +532,8 @@ function initialize(context) {
                 configToSave.topics = [{ id: "default", name: "主要对话", createdAt: Date.now() }];
             }
 
+            configToSave = normalizePromptConfig(configToSave);
+
             if (agentConfigManager) {
                 await agentConfigManager.writeAgentConfig(agentId, configToSave);
             } else {
@@ -511,7 +594,8 @@ function initialize(context) {
     ipcMain.handle('get-all-items', async () => {
         const agents = await getAgentsInternal(context);
         const groups = await getGroupsInternal(context);
-        return { success: true, items: [...agents, ...groups] };
+        const mirrors = await channelMirrorHandlers.getChannelMirrorSessionsInternal();
+        return { success: true, items: [...agents, ...groups, ...mirrors] };
     });
 }
 
@@ -545,6 +629,10 @@ async function getAgentsInternal({ AGENT_DIR }) {
                     else if (await fs.pathExists(avatarPathJpg)) avatarUrl = `file://${avatarPathJpg}`;
                     else if (await fs.pathExists(avatarPathJpeg)) avatarUrl = `file://${avatarPathJpeg}`;
                     else if (await fs.pathExists(avatarPathGif)) avatarUrl = `file://${avatarPathGif}`;
+
+                    if (config.hiddenFromMainList === true) {
+                        return null;
+                    }
 
                     return { ...config, id: agentId, type: 'agent', avatarUrl };
                 } catch (e) {

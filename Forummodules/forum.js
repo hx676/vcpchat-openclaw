@@ -567,11 +567,17 @@ async function loadPosts() {
             renderCurrentFilteredPosts({ force: true });
         })
         .catch(error => {
-            // Log errors immediately as well.
             console.error('Load posts failed:', error);
-            // We re-throw the error to ensure Promise.all can catch it if needed,
-            // but the main goal is immediate logging.
-            throw error;
+            allPosts = [];
+            updateBoardFilter(allPosts);
+            updateBoardDatalist(allPosts);
+            renderForumState({
+                type: 'error',
+                title: '论坛加载失败',
+                message: `后端接口没有成功返回帖子列表：${error.message || '未知错误'}`,
+                actionText: '重新加载',
+                action: loadPosts
+            });
         });
 
     // The minimum duration promise ensures the animation lasts at least 1 second.
@@ -652,6 +658,16 @@ function renderWaterfall(postsToRender) {
 
     if (!postsToRender || postsToRender.length === 0) {
         lastRenderedPostKeys = '';
+        const hasPosts = allPosts.length > 0;
+        renderForumState({
+            type: hasPosts ? 'search' : 'empty',
+            title: hasPosts ? '没有匹配的帖子' : '论坛暂无帖子',
+            message: hasPosts
+                ? '换个关键词或切换到“全部板块”试试。'
+                : '后端已经连上了，但当前论坛目录里还没有帖子。发布第一帖后这里就会显示瀑布流卡片。',
+            actionText: hasPosts ? '清空筛选' : '发布第一帖',
+            action: hasPosts ? clearForumFilters : openCreatePostModal
+        });
         return;
     }
 
@@ -665,6 +681,42 @@ function renderWaterfall(postsToRender) {
     });
 
     masonryContainer.appendChild(fragment);
+}
+
+function renderForumState({ type, title, message, actionText, action }) {
+    masonryContainer.innerHTML = '';
+
+    const stateCard = document.createElement('div');
+    stateCard.className = `forum-state-card glass ${type === 'error' ? 'is-error' : ''}`;
+
+    const icon = document.createElement('div');
+    icon.className = 'forum-state-icon';
+    icon.textContent = type === 'error' ? '!' : type === 'search' ? '?' : '+';
+
+    const titleEl = document.createElement('h2');
+    titleEl.textContent = title;
+
+    const messageEl = document.createElement('p');
+    messageEl.textContent = message;
+
+    stateCard.append(icon, titleEl, messageEl);
+
+    if (actionText && typeof action === 'function') {
+        const actionButton = document.createElement('button');
+        actionButton.type = 'button';
+        actionButton.className = 'jelly-btn forum-state-action';
+        actionButton.textContent = actionText;
+        actionButton.addEventListener('click', action);
+        stateCard.appendChild(actionButton);
+    }
+
+    masonryContainer.appendChild(stateCard);
+}
+
+function clearForumFilters() {
+    searchInput.value = '';
+    boardFilter.value = 'all';
+    renderCurrentFilteredPosts({ force: true });
 }
 
 function createPostCard(post, index) {
@@ -1439,7 +1491,7 @@ searchInput.addEventListener('input', debounce(() => applyFilters(), 120));
 boardFilter.addEventListener('change', applyFilters);
 refreshBtn.addEventListener('click', loadPosts);
 
-createPostBtn.addEventListener('click', () => {
+function openCreatePostModal() {
     const authorInput = document.getElementById('post-author-input');
     if (authorInput) {
         // Pre-fill author name from settings, prioritizing reply name
@@ -1451,12 +1503,14 @@ createPostBtn.addEventListener('click', () => {
     const createPostEmoticonBtn = document.getElementById('create-post-emoticon-btn');
     const postContentInput = document.getElementById('post-content-input');
     if (createPostEmoticonBtn && postContentInput) {
-        createPostEmoticonBtn.addEventListener('click', (e) => {
+        createPostEmoticonBtn.onclick = (e) => {
             e.stopPropagation();
             window.emoticonManager.togglePanel(createPostEmoticonBtn, postContentInput);
-        });
+        };
     }
-});
+}
+
+createPostBtn.addEventListener('click', openCreatePostModal);
 document.querySelectorAll('.modal-close-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
         e.target.closest('.modal').style.display = 'none';

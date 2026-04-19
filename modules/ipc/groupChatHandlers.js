@@ -4,6 +4,16 @@ const path = require('path');
 const fs = require('fs-extra');
 const groupChat = require('../../Groupmodules/groupchat');
 
+let silverCompanionSessionManager = null;
+
+function getSilverCompanionSessionManager(projectRoot) {
+    if (!silverCompanionSessionManager) {
+        const SilverCompanionSessionManager = require(path.join(projectRoot, 'VCPDistributedServer', 'Plugin', 'SilverCompanion', 'src', 'services', 'silverCompanionSessionManager'));
+        silverCompanionSessionManager = new SilverCompanionSessionManager({ projectRoot });
+    }
+    return silverCompanionSessionManager;
+}
+
 /**
  * Initializes group chat related IPC handlers.
  * @param {BrowserWindow} mainWindow The main window instance.
@@ -17,18 +27,24 @@ const groupChat = require('../../Groupmodules/groupchat');
 let ipcHandlersRegistered = false;
 
 function initialize(mainWindow, context) {
-    const { AGENT_DIR, USER_DATA_DIR, getSelectionListenerStatus, stopSelectionListener, startSelectionListener, fileWatcher } = context;
+    const { AGENT_DIR, USER_DATA_DIR, APP_DATA_ROOT_IN_PROJECT, PROJECT_ROOT, getSelectionListenerStatus, stopSelectionListener, startSelectionListener, fileWatcher } = context;
 
     if (ipcHandlersRegistered) {
         return;
     }
 
     // Helper function to get agent config, needed by multiple handlers
+    const readJsonWithBomTolerance = async (filePath) => {
+        const rawContent = await fs.readFile(filePath, 'utf8');
+        const content = rawContent.charCodeAt(0) === 0xFEFF ? rawContent.slice(1) : rawContent;
+        return JSON.parse(content);
+    };
+
     const getAgentConfigById = async (agentId) => {
         const agentDir = path.join(AGENT_DIR, agentId);
         const configPath = path.join(agentDir, 'config.json');
         if (await fs.pathExists(configPath)) {
-            const config = await fs.readJson(configPath);
+            const config = await readJsonWithBomTolerance(configPath);
             // Construct avatarUrl by checking for file existence, which is more robust
             const avatarPathPng = path.join(agentDir, 'avatar.png');
             const avatarPathJpg = path.join(agentDir, 'avatar.jpg');
@@ -53,6 +69,11 @@ function initialize(mainWindow, context) {
     // --- Group Chat IPC Handlers ---
     ipcMain.handle('create-agent-group', async (event, groupName, initialConfig) => {
         return await groupChat.createAgentGroup(groupName, initialConfig);
+    });
+
+    ipcMain.handle('create-silver-companion-group', async (_event, payload = {}) => {
+        const sessionManager = getSilverCompanionSessionManager(PROJECT_ROOT);
+        return sessionManager.createSilverCompanionGroup(payload);
     });
     
     ipcMain.handle('get-agent-groups', async () => {
@@ -118,13 +139,11 @@ function initialize(mainWindow, context) {
             if (fileWatcher) {
                 fileWatcher.signalInternalSave();
             }
-            // Construct path similar to getGroupChatHistory in groupchat.js
-            const historyDir = path.join(USER_DATA_DIR, groupId, 'topics', topicId);
-            await fs.ensureDir(historyDir);
-            const historyFile = path.join(historyDir, 'history.json');
-            await fs.writeJson(historyFile, history, { spaces: 2 });
-            console.log(`[Main IPC] 群组 ${groupId} 话题 ${topicId} 聊天历史已保存到 ${historyFile}`);
-            return { success: true };
+            const result = await groupChat.saveGroupChatHistory(groupId, topicId, history);
+            if (result.success) {
+                console.log(`[Main IPC] 群组 ${groupId} 话题 ${topicId} 聊天历史已保存到 ${result.historyFile}`);
+            }
+            return result;
         } catch (error) {
             console.error(`[Main IPC] 保存群组 ${groupId} 话题 ${topicId} 聊天历史失败:`, error);
             return { success: false, error: error.message };
@@ -142,6 +161,18 @@ function initialize(mainWindow, context) {
                     mainWindow.webContents.send('vcp-stream-event', data);
                 }
             };
+
+            const groupConfig = await groupChat.getAgentGroupConfig(groupId);
+            if (groupConfig && (groupConfig.silverCompanionManaged === true || groupConfig.mode === 'silver_companion_managed')) {
+                const sessionManager = getSilverCompanionSessionManager(PROJECT_ROOT);
+                await sessionManager.handleManagedGroupMessage({
+                    groupId,
+                    topicId,
+                    userMessage,
+                    sendStreamChunkToRenderer,
+                });
+                return { success: true, managed: true, message: 'SilverCompanion managed group message handled.' };
+            }
     
             // Await the group chat handler to ensure any errors within it are caught by this try...catch block.
             await groupChat.handleGroupChatMessage(groupId, topicId, userMessage, sendStreamChunkToRenderer, getAgentConfigById);
@@ -193,5 +224,6 @@ function initialize(mainWindow, context) {
 }
 
 module.exports = {
-    initialize
+    initialize,
+    getSilverCompanionSessionManager,
 };

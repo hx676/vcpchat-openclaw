@@ -93,27 +93,38 @@ const settingsManager = (() => {
                 if (agentSettingsExists) agentSettingsContainer.style.display = '';
                 if (groupSettingsExists) groupSettingsContainer.style.display = 'none';
                 itemSettingsContainerTitle.textContent = 'Agent 设置: ';
+                deleteItemBtn.style.display = '';
                 deleteItemBtn.textContent = '删除此 Agent';
                 await populateAgentSettingsForm(currentSelectedItem.id, (currentSelectedItem.config || currentSelectedItem));
             } else if (currentSelectedItem.type === 'group') {
                 if (agentSettingsExists) agentSettingsContainer.style.display = 'none';
                 if (groupSettingsExists) groupSettingsContainer.style.display = 'block';
                 itemSettingsContainerTitle.textContent = '群组设置: ';
+                deleteItemBtn.style.display = '';
                 deleteItemBtn.textContent = '删除此群组';
                 if (window.GroupRenderer && typeof window.GroupRenderer.displayGroupSettingsPage === 'function') {
                     window.GroupRenderer.displayGroupSettingsPage(currentSelectedItem.id);
                 } else {
-                    console.error("GroupRenderer or displayGroupSettingsPage not available.");
-                    if (groupSettingsExists) groupSettingsContainer.innerHTML = "<p>无法加载群组设置界面。</p>";
+                    console.error('GroupRenderer or displayGroupSettingsPage not available.');
+                    if (groupSettingsExists) groupSettingsContainer.innerHTML = '<p>无法加载群组设置界面。</p>';
                 }
+            } else if (currentSelectedItem.type === 'channel_mirror') {
+                if (agentSettingsExists) agentSettingsContainer.style.display = 'none';
+                if (groupSettingsExists) {
+                    groupSettingsContainer.style.display = 'block';
+                    groupSettingsContainer.innerHTML = '<div class="settings-placeholder"><p>Channel Mirror 为只读会话源，当前不支持在这里直接编辑。</p></div>';
+                }
+                itemSettingsContainerTitle.textContent = 'Channel Mirror';
+                deleteItemBtn.style.display = 'none';
             }
         } else {
             if (agentSettingsExists) agentSettingsContainer.style.display = 'none';
             if (groupSettingsExists) groupSettingsContainer.style.display = 'none';
-            selectItemPromptForSettings.textContent = '请先在左侧选择一个 Agent 或群组以查看或修改其设置。';
+            selectItemPromptForSettings.textContent = '请先在左侧选择一个 Agent、群组或镜像会话以查看设置。';
             selectItemPromptForSettings.style.display = 'block';
             itemSettingsContainerTitle.textContent = '设置';
             selectedItemNameForSettingsSpan.textContent = '';
+            deleteItemBtn.style.display = '';
         }
     }
 
