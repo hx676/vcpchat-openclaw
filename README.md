@@ -1,5 +1,28 @@
 # VCPChat OpenClaw Fork
 
+[![Fork: VCPChat](https://img.shields.io/badge/Fork-VCPChat-2f81f7)](https://github.com/hx676/vcpchat-openclaw)
+[![Paired Backend](https://img.shields.io/badge/Paired%20Backend-vcptoolbox--openclaw-111827)](https://github.com/hx676/vcptoolbox-openclaw)
+[![OpenClaw Integrated](https://img.shields.io/badge/OpenClaw-Integrated-16a34a)](https://github.com/hx676/vcptoolbox-openclaw)
+[![AgentFlow Studio](https://img.shields.io/badge/AgentFlow-Studio-f59e0b)](https://github.com/hx676/vcpchat-openclaw/tree/main/AgentFlowStudio)
+[![Channel Mirror](https://img.shields.io/badge/Channel-Mirror-7c3aed)](https://github.com/hx676/vcptoolbox-openclaw)
+[![Desktop Distributed](https://img.shields.io/badge/Desktop-Distributed%20Ready-0ea5e9)](https://github.com/hx676/vcpchat-openclaw)
+
+## 首页导航
+
+| 入口 | 说明 |
+| --- | --- |
+| [当前仓库](https://github.com/hx676/vcpchat-openclaw) | `VCPChat` 桌面前端、镜像会话查看、AgentFlow Studio |
+| [配套后端](https://github.com/hx676/vcptoolbox-openclaw) | `VCPToolBox` 后端、知识库、记忆、工具、OpenClaw 集成 |
+| [前端文档目录](/E:/2026/VCPChat/docs/DOCUMENTATION_INDEX.md) | 当前仓库的文档入口 |
+| [AgentFlow Studio](/E:/2026/VCPChat/AgentFlowStudio) | 独立前端工作区 |
+| [上游项目](https://github.com/lioensky/VCPChat) | 原始 `VCPChat` 仓库 |
+
+## 当前状态
+
+- 当前仓库已经按个人二开版收口，不再是单纯的上游镜像。
+- GitHub 首页已补齐 README、About、Description 和 Topics。
+- 推荐阅读顺序是：`README -> docs -> paired repo -> 本地启动`。
+
 这是 `VCPChat` 的个人二次开发版本，仓库地址为：
 
 - 前端客户端仓库：[hx676/vcpchat-openclaw](https://github.com/hx676/vcpchat-openclaw)
